@@ -103,6 +103,34 @@ def desktop_files(root, make_desktop=True):
     dest.chmod(0o755)
 
 
+def wait_for_preparation(proc, data, headless, output, *, timeout=7200, settle=3):
+    """Close a completed graphical import without treating our SIGINT as a build failure."""
+    started = time.monotonic()
+    ready_since = None
+    requested_close = False
+    while proc.poll() is None:
+        if time.monotonic() - started > timeout:
+            raise InstallError('Preparation exceeded its time limit; the previous installation was preserved.')
+        game_log = data / 'fe3hrecomp.log'
+        text = game_log.read_text(errors='replace')[-12000:] if game_log.exists() else ''
+        ready = '[gamebuild] done ' in text and (data / 'extracted/fe3hgame.so.id').is_file()
+        if ready:
+            ready_since = ready_since or time.monotonic()
+            if not headless and time.monotonic() - ready_since >= settle:
+                requested_close = True
+                stop_session(proc)
+                break
+        time.sleep(.1)
+    # Only an interruption explicitly requested after the completed-build marker
+    # is expected. An external interruption or a crash remains an error. The
+    # caller must still validate every input copy and load the compiled library.
+    accepted_close = requested_close and proc.returncode in (-signal.SIGINT, 128 + signal.SIGINT)
+    with output.open('a', encoding='utf-8') as log:
+        log.write(f'\n[installer] setup exit={proc.returncode}; completed-build close requested={requested_close}\n')
+    if proc.returncode != 0 and not accepted_close:
+        raise InstallError(f'Preparation did not finish (exit {proc.returncode}). The previous installation is unchanged. See {output}')
+
+
 def install(args, installation):
     root = installation.root
     assert_game_closed(root)
@@ -143,23 +171,7 @@ def install(args, installation):
     try:
         with output.open('w') as log:
             proc = subprocess.Popen([str(app)], env=env, cwd=data, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
-            started = time.monotonic()
-            ready_since = None
-            while proc.poll() is None:
-                if time.monotonic() - started > 7200:
-                    raise InstallError('Preparation exceeded its time limit; the previous installation was preserved.')
-                game_log = data / 'fe3hrecomp.log'
-                text = game_log.read_text(errors='replace')[-12000:] if game_log.exists() else ''
-                ready = '[gamebuild] done ' in text and (data / 'extracted/fe3hgame.so.id').is_file()
-                if ready:
-                    ready_since = ready_since or time.monotonic()
-                    if not args.headless and time.monotonic() - ready_since > 3:
-                        proc.send_signal(signal.SIGINT)
-                        proc.wait(timeout=30)
-                        break
-                time.sleep(.5)
-            if proc.returncode != 0:
-                raise InstallError(f'Preparation did not finish. The previous installation is unchanged. See {output}')
+            wait_for_preparation(proc, data, args.headless, output)
         built = data / 'extracted'
         verify_copy(exefs, built / 'exefs')
         verify_copy(romfs, built / 'romfs')
