@@ -1,37 +1,81 @@
-# FE3H Recomp â€” Linux opt5
+# FE3H Deck Recomp
 
-Native Linux fork of FE3H Recomp, optimized and tested on a Steam Deck LCD. Based on [FE3H Recomp](https://git.onerag90.de/recomps/fe3h-recomp) and [LASRecomp](https://github.com/peiikai/LASRecomp).
+[EspaÃ±ol](README.es.md) Â· [Installation and recovery](docs/linux.md) Â· [Validation](docs/validation.md)
 
-The game, DLC, generated game library, shaders extracted from the game, saves and caches are **not included**. Supply your own extracted FE3H **1.2.0 base game with the update applied**, as `exefs` and `romfs` folders. Extracted DLC is optional. Packed NSP/NCA/XCI files are not installer inputs.
+A native Linux adaptation of *Fire Emblem: Three Houses*, optimized and tested on the **Steam Deck LCD**. Based on **FE3H Recomp by onerag90**, itself built on **LASRecomp by Peiikai**. This is an independently maintained fork, not an official release of either upstream project.
 
-## Install on SteamOS
+> [!IMPORTANT]
+> This project and the Linux adaptation were developed with AI assistance and human direction, testing and review. It is shared as-is; testing does not cover an entire playthrough or every device.
 
-1. Extract the Linux distribution into a writable folder in Desktop Mode.
-2. Open `Install.desktop` and select your `exefs` and merged `romfs` folders. Optionally select the folder containing the extracted DLC packs.
-3. Wait for the graphical importer to copy and compile the game locally. A working installation is kept until the replacement has been verified.
-4. Start **FE3H Linux** from the desktop. Add the installed `FE3H.sh` to Steam manually to use Game Mode. The installer does not edit the Steam library.
+> [!NOTE]
+> No game files, DLC, generated game code, extracted game shaders, console fonts or saves are included. Supply your own legally obtained **FE3H 1.2.0**, with the update already merged into extracted `exefs` and `romfs` folders. Extracted DLC is optional. Instructions for obtaining game files are not provided.
 
-SteamOS supplies Python 3 and kdialog. Other Linux installations need these for the installer, a Vulkan 1.3 driver and an x86-64 CPU with AVX2/FMA. Other GPUs have not received the same validation as the Deck LCD. Allow space for a separate complete copy of the game and temporary compilation files. No SteamOS system packages or read-only system settings are changed.
+## What this is
 
-The default data folder is `~/.local/share/fe3hrecomp`. Saves remain in its `save` folder. Configuration and saves are retained when reinstalling. The Deck launcher keeps dock mode and starts new installations at `match`; available resolutions remain adjustable in F1 â†’ Video. Closing the application releases its process memory; suspension retains it.
+The static recompiler translates the original AArch64 code to C and compiles it locally. The native runtime implements the system services the game uses, with Vulkan graphics and native audio/video libraries. Playing does not require Wine or Proton. The original FE3H and LASRecomp projects provide the foundation; this fork selectively adapts their code and adds the tested Linux optimizations documented in [UPSTREAM.md](UPSTREAM.md).
 
-Command-line installation and recovery are described in [docs/linux.md](docs/linux.md). Reinstallation and updates use the installer so the previous application and game files remain recoverable. The private cloud-save synchronization used during development is not required or included.
+## Status
 
-## Changes and limits
+Current version: **0.2.3-linux-opt5**. Tested on a Steam Deck LCD in dock mode, retaining adjustable internal resolution, audio and movies. Linux x86-64 is the release target; other devices have not received the same validation. This repository does not distribute or maintain a Windows build.
 
-- Lower CPU busy-waiting, a rendering-profile-specific pipeline prewarm list, and explicit ownership of resources retired during an internal restart.
-- Selected upstream fixes for GPU waits, textures, pipelines, controller input, audio periods, movie buffers, saves and data mods.
-- Dock behavior, native half translation, selected structured lighting, sparse local memory and direct romfs reading retained from opt4.
-- The additional lighting compiler experiment, packed-half experiment and descriptor-reuse experiment were not accepted.
+New opt5 work includes lower CPU busy-waiting, profile-specific pipeline prewarming, resource ownership fixes for internal restarts, and selected upstream fixes for GPU waits, textures, input, audio, movies, saves and mods. Structured lighting, native half translation, sparse local memory and dock behavior were already present in opt4.
 
-At `match`, three paired monastery runs improved p99 frame time by about **2.95%** and APU power by **3.51%** compared with opt4. Daytime-battle runs improved average FPS by about **2.15%**, with essentially unchanged APU power and a **1.71% worse p99**. The first battle pair had a thermal-comparability caveat. These are scene-specific measurements, not a promise of 60 FPS everywhere or at x1/1080p. See [docs/validation.md](docs/validation.md).
+At `match`, paired monastery tests improved p99 frame time by **2.95%** and APU power by **3.51%** versus opt4. Daytime battle mean FPS improved **2.15%**, with essentially unchanged power and **1.71% worse p99**. One battle pair had a thermal-comparability caveat. These are scene-specific measurements, not a guarantee of 60 FPS everywhere or at x1/1080p. [Full evidence and limits](docs/validation.md).
 
-There is a pre-existing combat-opening blur/trail issue at `match`, also observed in opt4. It did not reproduce visibly in the manual x1 check. Higher resolution can substantially increase GPU cost.
+## Requirements
 
-Data mods for the base game and DLC live in `extracted/mods`, separately from the original romfs. No mods are enabled in a fresh installation. Add folders in Desktop Mode, then enable, disable or order installed mods from the game interface. The last mod has priority. A save made with gameplay-changing mods may need the same mods on another installation; mods are not automatically synchronized.
+- SteamOS / Linux x86-64; AppImage built for glibc 2.35 or newer.
+- AVX2/FMA-capable CPU and a Vulkan 1.3 GPU/driver. The Deck LCD is the tested hardware.
+- Python 3.10+ and `kdialog` for installation; SteamOS already provides them.
+- Writable storage for the game, a separate staged installation and temporary compilation files. Reinstallation also retains the previous extracted copy for recovery.
+- Your own extracted FE3H 1.2.0 `exefs` and merged `romfs`; optional extracted DLC.
 
-## Build, provenance and licenses
+## Installing a release on SteamOS
 
-See [docs/linux.md](docs/linux.md) for the Linux build, synthetic tests and FE3H smoke test. CI does not need the game. The public reference is `v0.2.3`, commit `4e21e7bff4a2df979e57ca82639c72931c726423`; selected later fixes and the native fork's changes are documented in [UPSTREAM.md](UPSTREAM.md).
+1. Obtain the complete `FE3H-Deck-Recomp-opt5-installer.tar.gz` from this projectâ€™s Releases section once published. Extract it into a writable folder in Desktop Mode.
+2. Keep the package together and open **Install.desktop**. Allow execution if KDE asks. Select your `exefs`, merged `romfs`, and optionally your DLC directory.
+3. Wait for local copying and compilation. In the full Deck import test this took about 43 minutes; other hardware and input/cache conditions vary. This is separate from normal game startup.
+4. Open **FE3H Deck Recomp** from the desktop. To play in Game Mode, add the installed **FE3H.sh** to Steam as a non-Steam game manually.
 
-Project code retains the [MIT license](LICENSE) and upstream notices. Third-party components retain their own licenses. The standalone generator includes Unicorn; its notices and corresponding source archive accompany the distribution. See [THIRD_PARTY.md](THIRD_PARTY.md). The application icon in `docs/icon` was supplied by the maintainer for this distribution; it is not covered by the code’s MIT license. The launcher background, when available, is generated locally from the user's movie files.
+The default data folder remains `~/.local/share/fe3hrecomp`; saves are in `save`. New Deck installations default to dock mode and `match`. Use **F1** or **Back + Start** for settings. The installer does not modify SteamOS or silently edit the Steam library.
+
+**Updating and recovery:** use the complete installer, not an upstream automatic updater or a blind overwrite. It prepares and verifies a separate installation, preserves saves/configuration and retains the previous extracted data. See [installation and recovery](docs/linux.md) for command-line options and `status` / `recover`.
+
+## DLC and mods
+
+Provide DLC as folders such as `dlc/010055D009F79001/romfs/...`; all six packs are supported when supplied and validated. DLC is optional. Mods are data-only and live in `extracted/mods`, separate from the original romfs. Import folders in Desktop Mode, then enable, disable and order them in the interface. The last enabled mod takes priority; ordering applies on the next boot. No mods are enabled by default. Exefs/code mods are not supported by this installer. Saves from gameplay-changing mods may require the same mods on another installation.
+
+## Building and testing
+
+Use `make appimage ARCH=x86_64` with podman and network access for build dependencies. Application builds and synthetic CI tests do not need game files; game code is generated only from the userâ€™s files. See [build instructions](docs/linux.md), the pinned dependency recipes and `.github/workflows/linux.yml`. CI is prepared but has not run on a hosted GitHub repository yet.
+
+## Known issues and limits
+
+- A pre-existing combat-opening blur/trail issue occurs at `match`, also seen in opt4. It was not visible in the manual x1 check; higher resolution substantially increases GPU cost.
+- Very large effect shaders remain excluded on the Deck; some effects may lack a layer. First-time shader compilation can cause temporary stutter or incomplete effects.
+- Tests include internal restarts, a separate 30-minute continuous session and earlier physical controller/suspend checks. They do not prove every future scene or a multi-hour session is leak-free.
+- Full identical-input opt4/opt5 framebuffer comparison remains uncompleted. Promotion was explicitly authorized with this limitation documented.
+- The public version saves locally. It contains no OneDrive synchronization, cloud configuration, access keys or credentials.
+
+For a bug report, include version, SteamOS/driver version, resolution, dock setting, reproducible steps and a redacted log. Do not upload game files, generated libraries, extracted shaders, saves containing personal information or credentials.
+
+## Credits
+
+- **[FE3H Recomp](https://git.onerag90.de/recomps/fe3h-recomp), by onerag90 and contributors** â€” the original Three Houses adaptation, game-specific services, audio, movies, shaders and tools.
+- **[LASRecomp](https://github.com/peiikai/LASRecomp), by Peiikai and contributors** â€” the foundational static recompiler, runtime, renderer and tooling. See its README for the full upstream credits.
+- **Ryujinx contributors** â€” the audio rendererâ€™s reverb and auxiliary processing, under MIT; notice retained in `third_party/ryujinx/LICENSE.txt`.
+- **Dear ImGui, SDL, FFmpeg, shaderc/glslang/SPIRV-Tools, Vulkan Memory Allocator and SMAA contributors** â€” interface, multimedia and graphics components.
+- **[AMD FidelityFX Super Resolution 1](https://github.com/GPUOpen-Effects/FidelityFX-FSR)** — retained upstream shader helpers under MIT; no new opt5 FSR features were enabled.
+- **Capstone, Unicorn, python-lz4, PyInstaller, Python and Zig contributors** â€” local generation, compilation and packaging.
+- **Baloo 2 and EB Garamond authors**, including Georg Duffner â€” the distributed open fonts.
+- **Switchbrew and the Switch homebrew community** â€” hardware and system documentation.
+
+Exact component versions, licenses and redistribution notices are listed in [THIRD_PARTY.md](THIRD_PARTY.md) and bundled in the AppImage. Credits apply to the components actually retained; this fork does not ship LASRecompâ€™s randomizer or the excluded FSR integration.
+
+## Legal and license
+
+This is a fan project, not affiliated with or endorsed by Nintendo, Intelligent Systems or Koei Tecmo. *Fire Emblem* and its characters/emblems remain the property of their respective owners.
+
+Project code retains the upstream **[MIT License](LICENSE)**, including the copyright notices of Peiikai and onerag90. Third-party components keep their own licenses. Distribute the corresponding-source archive and notices alongside the binary kit, including FFmpeg and Unicorn sources. See [THIRD_PARTY.md](THIRD_PARTY.md).
+
+The application icon was supplied by the maintainer for this distribution. It is not covered automatically by the codeâ€™s MIT license, which grants no rights to the depicted characters or emblems. The optional launcher background is generated locally from the userâ€™s files.

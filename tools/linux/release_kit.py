@@ -8,6 +8,8 @@ import hashlib
 import json
 import shutil
 import tarfile
+import subprocess
+import tempfile
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
@@ -17,7 +19,7 @@ def main():
     source = Path(__file__).resolve().parent
     repo = source.parents[1]
     app = args.appimage.resolve(strict=True)
-    kit = args.output.resolve() / 'FE3H-Linux-opt5'
+    kit = args.output.resolve() / 'FE3H-Deck-Recomp-opt5'
     kit.mkdir(parents=True, exist_ok=False)
     for name in ('manage.py', 'install_core.py', 'game_files.py', 'processes.py', 'Install.sh', 'Install.desktop'):
         shutil.copy2(source / name, kit / name)
@@ -25,8 +27,15 @@ def main():
     (kit / app.name).chmod(0o755)
     (kit / 'Install.sh').chmod(0o755)
     (kit / 'Install.desktop').chmod(0o755)
-    for name in ('LICENSE', 'THIRD_PARTY.md', 'UPSTREAM.md'):
+    for name in ('LICENSE', 'THIRD_PARTY.md', 'UPSTREAM.md', 'README.md', 'README.es.md'):
         shutil.copy2(repo / name, kit / name)
+    (kit / 'docs').mkdir()
+    for name in ('linux.md', 'validation.md'):
+        shutil.copy2(repo / 'docs' / name, kit / 'docs' / name)
+    with tempfile.TemporaryDirectory(prefix='fe3h-notices-') as temporary:
+        subprocess.run([str(app), '--appimage-extract'], cwd=temporary,
+                       stdout=subprocess.DEVNULL, check=True, timeout=120)
+        shutil.copytree(Path(temporary) / 'squashfs-root/usr/share/licenses/fe3hrecomp', kit / 'licenses')
     shutil.copy2(repo / 'docs/linux.md', kit / 'INSTRUCTIONS.md')
     shutil.copy2(repo / 'docs/validation.md', kit / 'VALIDATION.md')
     with app.open('rb') as stream:
@@ -34,12 +43,12 @@ def main():
     shutil.copy2(repo / 'docs/icon/icon_1024.png', kit / 'icon.png')
     (kit / 'release.json').write_text(json.dumps({'appimage': app.name, 'sha256': sha, 'version': '0.2.3-linux-opt5'}, indent=2) + '\n')
     hashes = []
-    for f in sorted(kit.iterdir()):
+    for f in sorted(kit.rglob('*')):
         if f.is_file():
             with f.open('rb') as stream:
-                hashes.append(hashlib.file_digest(stream, 'sha256').hexdigest() + '  ' + f.name)
+                hashes.append(hashlib.file_digest(stream, 'sha256').hexdigest() + '  ' + f.relative_to(kit).as_posix())
     (kit / 'SHA256SUMS').write_text('\n'.join(hashes) + '\n')
-    target = args.output.resolve() / 'FE3H-Linux-opt5-installer.tar.gz'
+    target = args.output.resolve() / 'FE3H-Deck-Recomp-opt5-installer.tar.gz'
     with tarfile.open(target, 'w:gz') as archive:
         archive.add(kit, arcname=kit.name)
     print(target)

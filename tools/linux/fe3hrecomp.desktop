@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=FE3H Recomp Linux
+Name=FE3H Deck Recomp
 Comment=Native FE3H recompiler; requires your own extracted game
 Exec=fe3hrecomp
 Icon=fe3hrecomp

@@ -21,7 +21,7 @@ extern "C" {
 #endif
 
 #define RT_BUNDLE_ID "com.peiikai.lasrecomp"  // (data folders and file names keep LAS's, so nothing moves)
-#define RT_APP_NAME "FE3H Recomp"             // what windows, dialogs and menus call the app
+#define RT_APP_NAME "FE3H Deck Recomp"             // what windows, dialogs and menus call the app
 
 void rt_paths_init(void);         // first thing in main(), after plat_init
 const char *rt_data_root(void);   // absolute

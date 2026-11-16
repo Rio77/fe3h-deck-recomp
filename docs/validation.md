@@ -6,10 +6,10 @@ Three alternating opt4/candidate pairs were measured for three minutes each per 
 
 | Scene | Mean FPS change | p95 frame-time change | p99 frame-time change | APU power change |
 |---|---:|---:|---:|---:|
-| Monastery | +0.39% | Ã¢Ë†â€™2.28% | Ã¢Ë†â€™2.95% | Ã¢Ë†â€™3.51% |
-| Daytime battle | +2.15% | Ã¢Ë†â€™0.16% | +1.71% | +0.01% |
+| Monastery | +0.39% | ÃƒÆ’Ã‚Â¢Ãƒâ€¹Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢2.28% | ÃƒÆ’Ã‚Â¢Ãƒâ€¹Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢2.95% | ÃƒÆ’Ã‚Â¢Ãƒâ€¹Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢3.51% |
+| Daytime battle | +2.15% | ÃƒÆ’Ã‚Â¢Ãƒâ€¹Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢0.16% | +1.71% | +0.01% |
 
-Daytime-battle means: opt4 about 55.38 FPS, candidate about 56.57 FPS. Process CPU use fell about 33.3%; this is not the same as an APU power saving. The candidate's GPU clock was higher under the same cap. The first battle pair differed by 3.15Ã‚Â°C in mean temperature, above the 3Ã‚Â°C diagnostic threshold; the other pairs differed by 0.97Ã‚Â°C and 1.83Ã‚Â°C and improved FPS by 1.69% and 1.94%. Do not treat all three pairs as thermally identical. Battle p99 worsened slightly in every pair, below the agreed 5% regression threshold.
+Daytime-battle means: opt4 about 55.38 FPS, candidate about 56.57 FPS. Process CPU use fell about 33.3%; this is not the same as an APU power saving. The candidate's GPU clock was higher under the same cap. The first battle pair differed by 3.15ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°C in mean temperature, above the 3ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°C diagnostic threshold; the other pairs differed by 0.97ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°C and 1.83ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â°C and improved FPS by 1.69% and 1.94%. Do not treat all three pairs as thermally identical. Battle p99 worsened slightly in every pair, below the agreed 5% regression threshold.
 
 The combined performance matrix used the memory5 executable. Follow-up ownership-only repairs produced memory7; its final battle comparison and functional checks passed. The source export additionally removes disabled experiments and changes installation/verification code. Release smoke-test results must identify the exact delivered artifact separately; the full performance matrix is not claimed to have been repeated for every packaging-only rebuild.
 
@@ -25,7 +25,7 @@ Captures verify scene, camera and basic image sanity; they are not an identical-
 
 ## Distribution checks
 
-Delivered AppImage SHA-256: `798c5b098f0bf1b29731f7e4ef7358502d43b00327937fb9a7e100fabe035dfe`.
+Delivered AppImage SHA-256: `5641d183d9fdc6b168634d681a029db621bd17a63d79b4c2e0a5a38db91bb0b5`.
 
 A complete local import rebuilt the game from original 1.2.0 modules, merged romfs
 and six DLC packs in paths containing spaces. Saves and configuration were
@@ -63,3 +63,14 @@ The promoted private installation completed its normal launcher/cloud-sync path,
 loaded the monastery, reached the scheduled capture and closed with code 0.
 The cloud state was synced with zero pending uploads. These private cloud
 components are not part of the public distribution.
+
+Public branding rebuild: FE3H Deck Recomp. Only display/packaging names,
+documentation and retained third-party notices changed. The private Deck
+installation remains on its previously promoted artifact, independently.
+
+The branded application loaded the isolated monastery save and closed normally;
+concurrent launch was blocked and saves were unchanged. This run used packaging
+hash dae3fe931d76d7c92aa360ca8ea51b3aff5285c724ce50b95ec2fd05b7e322b8.
+The final archive adds the retained FSR notice and README credit without
+rebuilding the native executable. The original game-library ID remains
+49a7c4db42f1f30f, confirmed by loading the existing compiled game library.

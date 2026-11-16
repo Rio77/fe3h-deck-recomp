@@ -5,6 +5,8 @@ The runtime, generator and compiler are separate components. Each keeps its own 
 | Component | Origin / license information |
 |---|---|
 | FE3H Recomp / LASRecomp code | MIT; root LICENSE retains upstream copyrights |
+| Ryujinx audio-derived reverb and auxiliary processing | MIT; third_party/ryujinx/LICENSE.txt |
+| AMD FidelityFX Super Resolution 1 retained shader helpers | MIT; third_party/fsr/LICENSE.txt; no new opt5 FSR features enabled |
 | Dear ImGui | MIT; third_party/imgui/LICENSE.txt |
 | SMAA reference implementation | MIT; third_party/smaa/LICENSE.txt |
 | Baloo 2 and EB Garamond | SIL Open Font License; individual OFL.txt files |

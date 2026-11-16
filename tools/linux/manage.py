@@ -22,7 +22,7 @@ DEFAULT_ROOT = Path(os.environ.get('XDG_DATA_HOME', str(Path.home() / '.local/sh
 def dialog(kind, text, *args):
     if not shutil.which('kdialog'):
         raise InstallError('kdialog is required for graphical installation. Use the documented command-line options instead.')
-    p = subprocess.run(['kdialog', '--title', 'FE3H Linux', kind, text, *args], text=True, capture_output=True)
+    p = subprocess.run(['kdialog', '--title', 'FE3H Deck Recomp', kind, text, *args], text=True, capture_output=True)
     return p.returncode, p.stdout.strip()
 
 
@@ -97,9 +97,9 @@ def desktop_files(root, make_desktop=True):
     if not make_desktop:
         return
     desktop = subprocess.check_output(['xdg-user-dir', 'DESKTOP'], text=True).strip()
-    dest = Path(desktop) / 'FE3H-Linux.desktop'
+    dest = Path(desktop) / 'FE3H-Deck-Recomp.desktop'
     quoted = str(launcher).replace('\\', '\\\\').replace('"', '\\"').replace('`', '\\`').replace('$', '\\$')
-    dest.write_text(f'[Desktop Entry]\nType=Application\nName=FE3H Linux\nExec="{quoted}"\nIcon={root / "icon.png"}\nTerminal=false\nCategories=Game;\n', encoding='utf-8')
+    dest.write_text(f'[Desktop Entry]\nType=Application\nName=FE3H Deck Recomp\nExec="{quoted}"\nIcon={root / "icon.png"}\nTerminal=false\nCategories=Game;\n', encoding='utf-8')
     dest.chmod(0o755)
 
 
@@ -180,7 +180,7 @@ def install(args, installation):
         if backup:
             print('Previous game files retained:', backup)
         if not args.headless:
-            dialog('--msgbox', 'FE3H is installed. Use FE3H Linux on your desktop. Open settings with F1 or Back + Start. Your saves and settings were preserved.')
+            dialog('--msgbox', 'FE3H is installed. Use FE3H Deck Recomp on your desktop. Open settings with F1 or Back + Start. Your saves and settings were preserved.')
     finally:
         if proc is not None:
             stop_session(proc)

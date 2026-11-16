@@ -1,7 +1,7 @@
 #!/bin/bash
 # tools/linux/package.sh <x86_64|aarch64> (inside the amd64 build container, tools/linux/appimage.sh): the game built
 # against build/linux/<arch>/deps and the seed generator helper (tools/linux/rando_helper.sh) put together
-# as an AppDir and packed by appimagetool: build/dist/FE3H-Recomp-<version>-linux-<arch>.AppImage
+# as an AppDir and packed by appimagetool: build/dist/FE3H-Deck-Recomp-<version>-linux-<arch>.AppImage
 # (named like the macOS / Windows releases; GitHub shows it as LAS.Recomp-<version>-linux-<arch>.AppImage).
 # Shipped next to the executable (usr/bin, where runtime/paths.c rt_resource looks): rando-gen/, what the start screen
 # builds the game code with on the player's machine (runtime/gamebuild.c: lasgen/, zig/ from tools/fetch_zig.sh,
@@ -15,7 +15,7 @@ P=$L/deps
 B=$L/game
 APPDIR=$L/AppDir
 VERSION=$(sed -n 's/^#define FE3H_VERSION "\(.*\)"/\1/p' runtime/ui/launcher.mm)
-OUT="build/dist/FE3H-Recomp-$VERSION-linux-$ARCH.AppImage"
+OUT="build/dist/FE3H-Deck-Recomp-$VERSION-linux-$ARCH.AppImage"
 JOBS=${FE3H_BUILD_JOBS:-4}
 
 tools/linux/build_deps.sh "$ARCH"

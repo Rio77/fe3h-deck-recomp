@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=Install FE3H Linux
+Name=Install FE3H Deck Recomp
 Comment=Import your own FE3H 1.2.0 game files
 Exec=python3 -c "import pathlib,runpy,sys; p=pathlib.Path(sys.argv.pop()).resolve().parent; sys.path.insert(0,str(p)); sys.argv=[str(p/'manage.py'),'install']; runpy.run_path(str(p/'manage.py'),run_name='__main__')" %k
 Icon=applications-games

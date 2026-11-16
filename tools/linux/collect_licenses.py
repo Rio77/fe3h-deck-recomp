@@ -40,7 +40,7 @@ for name in ('sdl', 'ffmpeg', 'shaderc', 'vma', 'vulkan-headers'):
     if not count:
         raise SystemExit(f'Missing notices for {name}')
     components.append({'component': name, 'version': versions[name], 'notice_files': count})
-for name in ('imgui', 'smaa', 'fonts'):
+for name in ('imgui', 'smaa', 'fonts', 'ryujinx', 'fsr'):
     count = notices(repo / 'third_party' / name, out / name)
     if not count:
         raise SystemExit(f'Missing notices for {name}')
