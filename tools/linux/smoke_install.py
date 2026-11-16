@@ -39,6 +39,7 @@ try:
     if configuration:assert digest(root/'fe3hrecomp.ini')==configuration,'Import changed configuration'
     status(status='import-verified',saves_preserved=True,settings_preserved=True)
     if before:
+        (root/'build').mkdir(exist_ok=True)
         env=dict(os.environ)
         for key in list(env):
             if key.startswith(('FE3H_','LARECOMP_','MANGOHUD')):env.pop(key)
