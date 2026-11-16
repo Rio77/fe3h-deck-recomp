@@ -43,6 +43,12 @@ The default data folder remains `~/.local/share/fe3hrecomp`; saves are in `save`
 
 **Updating and recovery:** use the complete installer, not an upstream automatic updater or a blind overwrite. It prepares and verifies a separate installation, preserves saves/configuration and retains the previous extracted data. See [installation and recovery](docs/linux.md) for command-line options and `status` / `recover`.
 
+### If Install.desktop fails
+
+Close the installer and open the bundled AppImage directly in Desktop Mode. If necessary, use **Settings > Game Files** to set up your own FE3H 1.2.0 files, wait for compilation, then choose **Play**. This does not bypass game-file validation. If a build already finished, preserve its work folder and logs for recovery.
+
+When using this fallback, **keep the AppImage** in a permanent folder and add it to Steam manually. It is not automatically copied by the managed installer, and no managed shortcut is created by this direct method. Keep the prepared data folder too.
+
 ## DLC and mods
 
 Provide DLC as folders such as `dlc/010055D009F79001/romfs/...`; all six packs are supported when supplied and validated. DLC is optional. Mods are data-only and live in `extracted/mods`, separate from the original romfs. Import folders in Desktop Mode, then enable, disable and order them in the interface. The last enabled mod takes priority; ordering applies on the next boot. No mods are enabled by default. Exefs/code mods are not supported by this installer. Saves from gameplay-changing mods may require the same mods on another installation.

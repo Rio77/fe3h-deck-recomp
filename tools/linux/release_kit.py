@@ -40,23 +40,18 @@ def main():
                     raise ValueError('Corresponding-source checksum mismatch')
     kit = args.output.resolve() / 'FE3H-Deck-Recomp-opt5'
     kit.mkdir(parents=True, exist_ok=False)
-    for name in ('manage.py', 'install_core.py', 'game_files.py', 'processes.py', 'Install.sh', 'Install.desktop'):
+    for name in ('manage.py', 'install_core.py', 'game_files.py', 'processes.py', 'Install.desktop'):
         shutil.copy2(source / name, kit / name)
     shutil.copy2(app, kit / app.name)
     (kit / app.name).chmod(0o755)
-    (kit / 'Install.sh').chmod(0o755)
     (kit / 'Install.desktop').chmod(0o755)
-    for name in ('LICENSE', 'THIRD_PARTY.md', 'UPSTREAM.md', 'README.md', 'README.es.md'):
+    for name in ('LICENSE', 'THIRD_PARTY.md', 'UPSTREAM.md'):
         shutil.copy2(repo / name, kit / name)
-    (kit / 'docs').mkdir()
-    for name in ('linux.md', 'validation.md'):
-        shutil.copy2(repo / 'docs' / name, kit / 'docs' / name)
+    shutil.copy2(source / 'README-installer.md', kit / 'README.md')
     with tempfile.TemporaryDirectory(prefix='fe3h-notices-') as temporary:
         subprocess.run([str(app), '--appimage-extract'], cwd=temporary,
                        stdout=subprocess.DEVNULL, check=True, timeout=120)
         shutil.copytree(Path(temporary) / 'squashfs-root/usr/share/licenses/fe3hrecomp', kit / 'licenses')
-    shutil.copy2(repo / 'docs/linux.md', kit / 'INSTRUCTIONS.md')
-    shutil.copy2(repo / 'docs/validation.md', kit / 'VALIDATION.md')
     with app.open('rb') as stream:
         sha = hashlib.file_digest(stream, 'sha256').hexdigest()
     shutil.copy2(repo / 'docs/icon/icon_1024.png', kit / 'icon.png')

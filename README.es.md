@@ -43,6 +43,12 @@ La carpeta de datos predeterminada continúa siendo `~/.local/share/fe3hrecomp`;
 
 **Actualización y recuperación:** utilizá el instalador completo, no el actualizador automático de upstream ni una sobrescritura directa. Prepara y verifica una instalación separada, conserva partidas/configuración y retiene los datos extraídos anteriores. Consultá [instalación y recuperación](docs/linux.md) para las opciones de consola y `status` / `recover`.
 
+### Si falla Install.desktop
+
+Cerrá el instalador y abrí directamente la AppImage incluida desde el modo escritorio. Si hace falta, prepará tus archivos FE3H 1.2.0 desde **Settings > Game Files**, esperá a que termine la compilación y elegí **Play**. Esto no evita la validación de los archivos. Si la compilación ya terminó, conservá su carpeta de trabajo y registros para poder recuperarla.
+
+Con esta alternativa, **conservá la AppImage** en una carpeta permanente y agregala a Steam manualmente. No se copia automáticamente mediante el instalador ni se crea su acceso administrado. Conservá también la carpeta de datos preparados.
+
 ## DLC y mods
 
 Los DLC se suministran como carpetas del tipo `dlc/010055D009F79001/romfs/...`; se admiten los seis paquetes cuando se proporcionan y validan. Son opcionales. Los mods son de datos y se alojan en `extracted/mods`, separados del romfs original. Importá las carpetas desde el escritorio y activalas, desactivalas u ordenalas desde la interfaz. El último mod habilitado tiene prioridad; el orden se aplica en el siguiente arranque. Una instalación nueva no activa mods. El instalador no admite mods de código/exefs. Una partida con cambios de jugabilidad puede necesitar los mismos mods en otra instalación.

@@ -79,3 +79,13 @@ Documentation refresh: repaired UTF-8 text, added two encoding regression checks
 and simplified the release to installation binaries and separate source archives.
 Notices are included in the installer; complete corresponding sources are available
 beside it. Runtime and game formats are unchanged.
+
+Graphical installer hotfix: a requested SIGINT after the completed-build marker
+was incorrectly classified as a compilation failure. The supervisor now accepts
+only its own completed-build interruption, stops its private session and retains
+all file/version/library checks. Four real-child regression checks cover this
+path, external interruption, forced termination and normal headless completion.
+All 25 installer/file/process/documentation checks passed locally. A retained
+completed import was validated and committed with six DLC packs, preserving
+saves/configuration without repeating compilation. The installer also retains
+the project icon when generating or refreshing the installed desktop shortcut.

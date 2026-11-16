@@ -48,7 +48,7 @@ An interrupted import can leave an owned workspace in `.installer-work`. These a
 The binary installer kit keeps `Install.desktop`, `Install.sh`, the Python modules,
 `release.json` and the AppImage together. Extract the whole archive before opening
 `Install.desktop` from the SteamOS desktop. Dolphin may ask you to trust/execute
-this launcher. Alternatively run `./Install.sh` in a terminal in that folder.
+this launcher. Alternatively run `python3 manage.py install` in a terminal in that folder.
 The installer creates a separate managed data directory and a desktop game
 launcher; add that launcher to Steam yourself. Do not move only the desktop file
 out of the kit before installation.
