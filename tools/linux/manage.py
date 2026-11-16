@@ -91,9 +91,16 @@ def desktop_files(root, make_desktop=True):
     launcher = root / 'FE3H.sh'
     launcher.write_text('#!/bin/sh\nHERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\nexec python3 "$HERE/manage.py" launch --root "$HERE"\n', encoding='utf-8')
     launcher.chmod(0o755)
-    icon = HERE / 'icon.png'
-    if icon.exists():
-        shutil.copy2(icon, root / 'icon.png')
+    # Kits ship icon.png; source-based installation/recovery uses docs/icon.
+    # An installed launcher may also refresh itself: do not copy a file onto itself.
+    icon = next((p for p in (HERE / 'icon.png', HERE.parent.parent / 'docs/icon/icon_1024.png') if p.is_file()), None)
+    if icon is None:
+        raise InstallError('The application icon is missing. Keep icon.png with the installer.')
+    target_icon = root / 'icon.png'
+    if icon.resolve() != target_icon.resolve():
+        temporary = root / 'icon.png.tmp'
+        shutil.copy2(icon, temporary)
+        os.replace(temporary, target_icon)
     if not make_desktop:
         return
     desktop = subprocess.check_output(['xdg-user-dir', 'DESKTOP'], text=True).strip()
