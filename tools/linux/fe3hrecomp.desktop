@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=FE3H Recomp Linux
+Comment=Native FE3H recompiler; requires your own extracted game
+Exec=fe3hrecomp
+Icon=fe3hrecomp
+Categories=Game;
+Terminal=false

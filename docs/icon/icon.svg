@@ -1,0 +1,6 @@
+<!-- Original geometric application icon; SPDX-License-Identifier: MIT. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 128 128">
+  <rect width="128" height="128" rx="24" fill="#152337"/>
+  <path d="M30 30H98V45H47V59H85V74H47V99H30Z" fill="#83d5ee"/>
+  <path d="M76 86H98V76L114 94L98 112V102H76Z" fill="#eebc73"/>
+</svg>

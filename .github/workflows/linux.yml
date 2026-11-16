@@ -1,0 +1,34 @@
+name: Linux build and synthetic tests
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: linux-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Audit clean source
+        run: python3 tools/linux/audit_release.py --source .
+      - name: Install container runner
+        run: |
+          if ! command -v podman >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y podman
+          fi
+      - name: Build pinned environment and dependencies
+        run: |
+          podman build -t localhost/fe3h-linux-ci -f tools/linux/Containerfile tools/linux
+          podman run --rm -v "$PWD:/src" -w /src localhost/fe3h-linux-ci bash tools/linux/build_deps.sh x86_64
+      - name: Build application without game files
+        run: |
+          podman run --rm -v "$PWD:/src" -w /src localhost/fe3h-linux-ci make -j4 B=build/linux/x86_64/ci DEPS=build/linux/x86_64/deps SHADERC=-lshaderc_shared build/linux/x86_64/ci/fe3hrecomp
+          ! nm build/linux/x86_64/ci/fe3hrecomp | grep ' f_70'
+      - name: Test synthetic translator, resources and installation
+        run: podman run --rm -v "$PWD:/src" -w /src localhost/fe3h-linux-ci bash tools/linux/check_synthetic.sh

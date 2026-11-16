@@ -1,0 +1,52 @@
+# your own game files and what's made from them (building from source puts them here)
+input/
+extracted/
+generated/
+generated-*/
+/rando/
+# Nintendo fonts (users import their own; only the README ships)
+/fonts/*
+!/fonts/README.md
+# build output, caches, saves and settings
+build/
+/cache/
+save/
+/larecomp.ini
+/fe3hrecomp.ini
+/cheats.txt
+# tools and Python environments (machine-specific)
+tools/venv/
+venv/
+__pycache__/
+.DS_Store
+
+# local debugging output (fn*.txt holds game code: never commit)
+/run.log*
+/run.lo
+/*.patch
+/fn*.txt
+/*.txt
+
+# Private runtime and integration artifacts
+*.pending
+*.nso
+*.npdm
+*.nca
+*.nsp
+*.nsz
+*.xci
+*.spv
+*.rdc
+*.log
+*.AppImage
+fe3hgame.*
+romfs.bin
+DATA0.bin
+DATA1.bin
+INFO0.bin
+INFO2.bin
+DlcVersion.bin
+rclone.conf
+.ssh/
+.installer-work/
+.recovery/

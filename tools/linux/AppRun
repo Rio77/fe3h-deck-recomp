@@ -1,0 +1,21 @@
+#!/bin/sh
+# Keep resources beside the executable; game files stay in the user's data root.
+HERE=$(dirname "$(readlink -f "$0")")
+PRODUCT=$(cat /sys/class/dmi/id/product_name 2>/dev/null || true)
+if [ "${FE3H_DECK_PROFILE:-1}" != 0 ]; then
+    case "$PRODUCT" in Jupiter|Galileo)
+        export FE3H_HANDHELD="${FE3H_HANDHELD:-0}"
+        export FE3H_MANAGED_HEAP="${FE3H_MANAGED_HEAP:-1}"
+        export FE3H_NATIVE_HALF="${FE3H_NATIVE_HALF:-1}"
+        export FE3H_SPARSE_LOCAL="${FE3H_SPARSE_LOCAL:-1}"
+        export FE3H_TIMED_SYNC="${FE3H_TIMED_SYNC:-1}"
+        export FE3H_DOCK_TARGETS="${FE3H_DOCK_TARGETS:-1}"
+        export FE3H_COMPUTE_SCF="${FE3H_COMPUTE_SCF:-1}"
+        export FE3H_LIGHTING_SCF="${FE3H_LIGHTING_SCF:-1}"
+        export FE3H_EFFECT_SCALE_FIX="${FE3H_EFFECT_SCALE_FIX:-0}"
+        export FE3H_LIMITER_MARGIN_US="${FE3H_LIMITER_MARGIN_US:-1000}"
+        export FE3H_WARM_PROFILE="${FE3H_WARM_PROFILE:-1}"
+        export SDL_AUDIO_DRIVER="${SDL_AUDIO_DRIVER:-pulseaudio}"
+    esac
+fi
+exec "$HERE/usr/bin/fe3hrecomp" "$@"
