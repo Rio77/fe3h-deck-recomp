@@ -22,7 +22,7 @@ The runtime, generator and compiler are separate components. Each keeps its own 
 
 The generator is frozen from the project's Python sources using `tools/linux/rando_helper.sh` (the inherited filename is historical; it builds no randomizer). Its package report records wheel URLs and hashes. `tools/linux/Containerfile`, `build_deps.sh`, `fetch_zig.sh`, the helper script and PyInstaller spec describe the build and installation steps. No game files are needed to rebuild the application or generator.
 
-The public release has one installer archive. Its `sources/` directory includes the complete corresponding-source distribution, with the project sources, FFmpeg and Unicorn archives and their checksum manifest. These are separate from game data; retain `sources/` and `licenses/` when redistributing the installer. The project's own generator sources and build scripts are included too. No private source-download credentials are required.
+The complete corresponding-source TAR.GZ is distributed separately beside the installer and AppImage in the same public release. It includes the project sources, FFmpeg and Unicorn archives and their checksum manifest. Keep those sources available alongside the binaries, and retain the installer’s `licenses/` notices. These files contain no game data. The project's own generator sources and build scripts are included too. No private source-download credentials are required.
 
 Users may rebuild or replace components. For a modified AppImage, regenerate the local release checksum manifest before using the installer; there is no signature lock or remote authorization service. An AppImage can also be extracted to inspect its files and notices. The bundled shared FFmpeg libraries can be replaced in a rebuilt AppDir.
 

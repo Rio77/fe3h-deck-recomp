@@ -25,7 +25,7 @@ Captures verify scene, camera and basic image sanity; they are not an identical-
 
 ## Distribution checks
 
-Delivered AppImage SHA-256: `e012ccc19b7e8d8192dcfc13a0dec7e33b29f41efc46a1cae8f10759448909e2`.
+Delivered AppImage SHA-256: `6f1428bb90b770ee697e31961458e2a361e316d8b7052e2ac118e12103aae736`.
 
 A complete local import rebuilt the game from original 1.2.0 modules, merged romfs
 and six DLC packs in paths containing spaces. Saves and configuration were
@@ -76,5 +76,6 @@ rebuilding the native executable. The original game-library ID remains
 49a7c4db42f1f30f, confirmed by loading the existing compiled game library.
 
 Documentation refresh: repaired UTF-8 text, added two encoding regression checks
-and consolidated the release into one Steam Deck installer. Corresponding sources
-and notices are included inside that installer. Runtime and game formats are unchanged.
+and simplified the release to installation binaries and separate source archives.
+Notices are included in the installer; complete corresponding sources are available
+beside it. Runtime and game formats are unchanged.

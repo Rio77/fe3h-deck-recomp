@@ -16,13 +16,13 @@ def main():
     p.add_argument('appimage', type=Path)
     p.add_argument('output', type=Path)
     p.add_argument('--sources', required=True, type=Path,
-                   help='Complete corresponding-source archive to include in the installer')
+                   help='Complete corresponding-source archive to distribute beside the installer')
     args = p.parse_args()
     source = Path(__file__).resolve().parent
     repo = source.parents[1]
     app = args.appimage.resolve(strict=True)
     corresponding = args.sources.resolve(strict=True)
-    # Sources accompany the binary in the same download; do not publish a kit
+    # Sources accompany the binary in the same release; do not publish a kit
     # which accidentally drops the generator or shared-library source archives.
     with tarfile.open(corresponding) as archive:
         for required in ('project/LICENSE', 'project/tools/gen.py',
@@ -60,8 +60,9 @@ def main():
     with app.open('rb') as stream:
         sha = hashlib.file_digest(stream, 'sha256').hexdigest()
     shutil.copy2(repo / 'docs/icon/icon_1024.png', kit / 'icon.png')
-    (kit / 'sources').mkdir()
-    shutil.copy2(corresponding, kit / 'sources' / corresponding.name)
+    source_output = args.output.resolve() / corresponding.name
+    if corresponding != source_output:
+        shutil.copy2(corresponding, source_output)
     (kit / 'release.json').write_text(json.dumps({'appimage': app.name, 'sha256': sha, 'version': '0.2.3-linux-opt5'}, indent=2) + '\n')
     hashes = []
     for f in sorted(kit.rglob('*')):

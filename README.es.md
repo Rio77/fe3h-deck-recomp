@@ -32,6 +32,8 @@ En `match`, las comparaciones del monasterio mejoraron el p99 del tiempo de foto
 
 ## Instalar una publicación en SteamOS
 
+La release ofrece el instalador completo para Steam Deck, la AppImage independiente, el ZIP con el código del proyecto y el TAR.GZ de fuentes correspondientes. Para instalar, utilizá el instalador indicado abajo; las descargas de fuentes sirven para compilar y cumplir las licencias, no son pasos adicionales de instalación.
+
 1. Descargá `FE3H-Deck-Recomp-0.2.3-linux-opt5-steamdeck.tar.gz` desde [Releases](https://github.com/Rio77/fe3h-deck-recomp/releases/latest). Extraelo en una carpeta escribible desde el modo escritorio.
 2. Conservá todos sus archivos juntos y abrí **Install.desktop**. Permití la ejecución si KDE lo solicita. Seleccioná tus `exefs`, `romfs` y, opcionalmente, la carpeta de DLC.
 3. Esperá a que termine la copia y compilación local. La importación completa probada en la Deck tardó unos 43 minutos; puede variar según hardware, archivos y caché. No es el tiempo habitual de arranque del juego.
@@ -76,6 +78,6 @@ Las versiones, licencias y avisos se detallan en [THIRD_PARTY.md](THIRD_PARTY.md
 
 Proyecto de aficionados sin afiliación ni respaldo de Nintendo, Intelligent Systems o Koei Tecmo. *Fire Emblem*, sus personajes y emblemas pertenecen a sus respectivos titulares.
 
-El código conserva la **[licencia MIT](LICENSE)** original y los avisos de copyright de Peiikai y onerag90. Las dependencias mantienen sus licencias. La descarga única incluye los avisos en `licenses/` y un archivo completo de fuentes correspondientes en `sources/`, incluidos FFmpeg y Unicorn. Conservá ambas carpetas si lo redistribuís. Consultá [THIRD_PARTY.md](THIRD_PARTY.md).
+El código conserva la **[licencia MIT](LICENSE)** original y los avisos de copyright de Peiikai y onerag90. Las dependencias mantienen sus licencias. El instalador incluye los avisos en `licenses/`. El archivo completo de fuentes correspondientes, incluidos FFmpeg y Unicorn, se descarga por separado como TAR.GZ desde la misma release. Distribuí esas fuentes y avisos junto a los binarios. Consultá [THIRD_PARTY.md](THIRD_PARTY.md).
 
 El mantenedor proporcionó el icono para esta distribución. La licencia MIT del código no cubre automáticamente la imagen ni concede derechos sobre sus personajes o emblemas. El fondo opcional del lanzador se genera localmente desde los archivos del usuario.

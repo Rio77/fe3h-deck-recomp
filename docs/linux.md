@@ -69,9 +69,9 @@ DEPS=build/linux/x86_64/deps bash tools/linux/check_synthetic.sh
 
 `tools/linux/audit_release.py` audits the actual source export and AppDir, separately from `.gitignore`. The release smoke test is FE3H-specific and uses an isolated data folder and copied save. Its private inputs and captures must not be committed or shipped. Full-game import tests require owned copies; CI runs only synthetic checks and a game-free application build.
 
-The single installer download contains the corresponding-source archive in `sources/` and notices in `licenses/`. Retain them when redistributing the installer. Do not publish generated game libraries, extracted/translated game shaders, caches, saves, game images/movies, diagnostic captures or logs, private launchers, access keys, cloud tokens or cloud configuration.
+The installer contains notices in `licenses/`; the complete corresponding-source TAR.GZ is a separate download in the same release. Distribute both alongside the binaries. Do not publish generated game libraries, extracted/translated game shaders, caches, saves, game images/movies, diagnostic captures or logs, private launchers, access keys, cloud tokens or cloud configuration.
 
-To assemble that single installer after building the AppImage and complete corresponding-source archive:
+To assemble the installer and copy its separate corresponding-source archive into the release output directory:
 
 ```sh
 python3 tools/linux/release_kit.py /path/to/application.AppImage /path/to/output --sources /path/to/corresponding-sources.tar.gz

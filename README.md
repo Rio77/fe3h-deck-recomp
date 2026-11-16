@@ -32,6 +32,8 @@ At `match`, paired monastery tests improved p99 frame time by **2.95%** and APU 
 
 ## Installing a release on SteamOS
 
+The release provides the complete Steam Deck installer, a standalone AppImage, the project source ZIP and the complete corresponding-source TAR.GZ. For installation, use the installer below; the source downloads are for building and license compliance, not additional installation steps.
+
 1. Download `FE3H-Deck-Recomp-0.2.3-linux-opt5-steamdeck.tar.gz` from [Releases](https://github.com/Rio77/fe3h-deck-recomp/releases/latest). Extract it into a writable folder in Desktop Mode.
 2. Keep the package together and open **Install.desktop**. Allow execution if KDE asks. Select your `exefs`, merged `romfs`, and optionally your DLC directory.
 3. Wait for local copying and compilation. In the full Deck import test this took about 43 minutes; other hardware and input/cache conditions vary. This is separate from normal game startup.
@@ -76,6 +78,6 @@ Exact component versions, licenses and redistribution notices are listed in [THI
 
 This is a fan project, not affiliated with or endorsed by Nintendo, Intelligent Systems or Koei Tecmo. *Fire Emblem* and its characters/emblems remain the property of their respective owners.
 
-Project code retains the upstream **[MIT License](LICENSE)**, including the copyright notices of Peiikai and onerag90. Third-party components keep their own licenses. The single installer download includes notices in `licenses/` and a complete corresponding-source archive in `sources/`, including FFmpeg and Unicorn. Keep both directories when redistributing it. See [THIRD_PARTY.md](THIRD_PARTY.md).
+Project code retains the upstream **[MIT License](LICENSE)**, including the copyright notices of Peiikai and onerag90. Third-party components keep their own licenses. The installer includes notices in `licenses/`. The complete corresponding-source archive, including FFmpeg and Unicorn, is a separate TAR.GZ download in the same release. Distribute those sources and notices alongside the binaries. See [THIRD_PARTY.md](THIRD_PARTY.md).
 
 The application icon was supplied by the maintainer for this distribution. It is not covered automatically by the code’s MIT license, which grants no rights to the depicted characters or emblems. The optional launcher background is generated locally from the user’s files.
