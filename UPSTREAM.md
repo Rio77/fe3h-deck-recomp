@@ -11,7 +11,7 @@ Selected groups:
 - Robust configuration and logging, audio-period pacing, movie resource cleanup, brief controller presses and active-controller selection. Existing menu combination and restart controls remain.
 - Confirmed-save protection and UI-thread notices; layered data mods, index merging, DLC support and regional English settings.
 - Native resource ownership: compilation queues, pipeline/program lifetimes, movie buffers, reverb buffers, thread signal stacks, shader compiler contexts, kernel/IPC objects and shared AM storage.
-- Linux distribution, original icon, local importer verification and recoverable installation.
+- Linux distribution, maintainer-supplied icon, local importer verification and recoverable installation.
 
 Excluded: upstream memory-block replacement, experimental Linux page tracking, giant compute shaders, FSR/temporal upscalers, portrait smoothing, vibration, amiibo and an official automatic updater. The extra fragment-compiler lighting optimization, packed-half experiment and descriptor-reuse experiment were discarded after measurements. Existing structured lighting remains enabled in the Deck profile and is not counted as a new opt5 gain.
 

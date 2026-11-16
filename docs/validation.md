@@ -6,10 +6,10 @@ Three alternating opt4/candidate pairs were measured for three minutes each per 
 
 | Scene | Mean FPS change | p95 frame-time change | p99 frame-time change | APU power change |
 |---|---:|---:|---:|---:|
-| Monastery | +0.39% | −2.28% | −2.95% | −3.51% |
-| Daytime battle | +2.15% | −0.16% | +1.71% | +0.01% |
+| Monastery | +0.39% | Ã¢Ë†â€™2.28% | Ã¢Ë†â€™2.95% | Ã¢Ë†â€™3.51% |
+| Daytime battle | +2.15% | Ã¢Ë†â€™0.16% | +1.71% | +0.01% |
 
-Daytime-battle means: opt4 about 55.38 FPS, candidate about 56.57 FPS. Process CPU use fell about 33.3%; this is not the same as an APU power saving. The candidate's GPU clock was higher under the same cap. The first battle pair differed by 3.15°C in mean temperature, above the 3°C diagnostic threshold; the other pairs differed by 0.97°C and 1.83°C and improved FPS by 1.69% and 1.94%. Do not treat all three pairs as thermally identical. Battle p99 worsened slightly in every pair, below the agreed 5% regression threshold.
+Daytime-battle means: opt4 about 55.38 FPS, candidate about 56.57 FPS. Process CPU use fell about 33.3%; this is not the same as an APU power saving. The candidate's GPU clock was higher under the same cap. The first battle pair differed by 3.15Ã‚Â°C in mean temperature, above the 3Ã‚Â°C diagnostic threshold; the other pairs differed by 0.97Ã‚Â°C and 1.83Ã‚Â°C and improved FPS by 1.69% and 1.94%. Do not treat all three pairs as thermally identical. Battle p99 worsened slightly in every pair, below the agreed 5% regression threshold.
 
 The combined performance matrix used the memory5 executable. Follow-up ownership-only repairs produced memory7; its final battle comparison and functional checks passed. The source export additionally removes disabled experiments and changes installation/verification code. Release smoke-test results must identify the exact delivered artifact separately; the full performance matrix is not claimed to have been repeated for every packaging-only rebuild.
 
@@ -25,7 +25,7 @@ Captures verify scene, camera and basic image sanity; they are not an identical-
 
 ## Distribution checks
 
-Delivered AppImage SHA-256: `43efeda9587f9e36672fe86a01390b2dbac854c5a945ec1fb3a1e4945734f8fb`.
+Delivered AppImage SHA-256: `798c5b098f0bf1b29731f7e4ef7358502d43b00327937fb9a7e100fabe035dfe`.
 
 A complete local import rebuilt the game from original 1.2.0 modules, merged romfs
 and six DLC packs in paths containing spaces. Saves and configuration were
@@ -53,7 +53,13 @@ Actual AppDir contents and exported sources passed the independent artifact audi
 The desktop entry passed desktop-file-validate. The GitHub workflow is prepared
 but has not run on GitHub: no repository or release was created or published.
 
-This remains a release candidate. A full identical-input framebuffer comparison
-of opt4 and opt5 has not been completed, so the strict image acceptance gate is
-not claimed as passed. Production opt4 remains selected pending that check;
-functional smoke results do not substitute for pixel equivalence.
+The maintainer explicitly authorized promotion to opt5 after reviewing these
+results. A full identical-input framebuffer comparison of opt4 and opt5 has not
+been completed; promotion does not claim that this check passed. The application
+icon was subsequently replaced with the image supplied by the maintainer.
+This packaging change does not alter the native executable or rendering code.
+
+The promoted private installation completed its normal launcher/cloud-sync path,
+loaded the monastery, reached the scheduled capture and closed with code 0.
+The cloud state was synced with zero pending uploads. These private cloud
+components are not part of the public distribution.

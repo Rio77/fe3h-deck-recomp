@@ -4,7 +4,7 @@ The supported target of this fork is x86-64 Linux, with validation on a Steam De
 
 ## Installer
 
-The release kit contains an AppImage, `Install.desktop`, `Install.sh`, the Python installer modules, an original icon, notices and checksums. Keep those files together. In Desktop Mode, open `Install.desktop`; allow execution if KDE asks. Select the extracted `exefs`, the merged base-plus-update `romfs` for FE3H 1.2.0, and optionally a directory containing DLC packs:
+The release kit contains an AppImage, `Install.desktop`, `Install.sh`, the Python installer modules, the application icon, notices and checksums. Keep those files together. In Desktop Mode, open `Install.desktop`; allow execution if KDE asks. Select the extracted `exefs`, the merged base-plus-update `romfs` for FE3H 1.2.0, and optionally a directory containing DLC packs:
 
 ```
 dlc/
@@ -26,7 +26,7 @@ Use `--root "/path/to/FE3H data"` to choose a dedicated installation folder. `--
 
 The installer prepares a separate workspace, runs the graphical importer or its headless equivalent, and verifies the generated library with the bundled application before committing. Existing saves and configuration are outside the replacement. The new application is content-addressed, and the previous extracted folder is retained in `.recovery`. A durable journal recovers interruptions between directory replacement and application selection. Failed input/builds do not replace a working installation.
 
-The initial profile is dock at `match`; F1 → Video can change resolution. The AppImage includes Deck profile defaults, and the installed `FE3H.sh` adds installation recovery and a launch lock. To add it to Steam, use Add a Non-Steam Game → Browse → All Files and select the installed `FE3H.sh`. No library entry is created silently. To reinstall or update existing game files, use the installer. The native import screen preserves an existing compiled installation instead of deleting it for an unverified replacement. `FE3H_DECK_PROFILE=0` disables embedded Deck defaults when running the AppImage directly for diagnostics.
+The initial profile is dock at `match`; F1 â†’ Video can change resolution. The AppImage includes Deck profile defaults, and the installed `FE3H.sh` adds installation recovery and a launch lock. To add it to Steam, use Add a Non-Steam Game â†’ Browse â†’ All Files and select the installed `FE3H.sh`. No library entry is created silently. To reinstall or update existing game files, use the installer. The native import screen preserves an existing compiled installation instead of deleting it for an unverified replacement. `FE3H_DECK_PROFILE=0` disables embedded Deck defaults when running the AppImage directly for diagnostics.
 
 The fallback game font is DejaVu Sans from the host. It is present on the tested Deck; other distributions need a TrueType DejaVu Sans font or their own supported console-font dump. Only OFL launcher fonts are distributed.
 

@@ -1,4 +1,4 @@
-# FE3H Recomp — Linux opt5
+# FE3H Recomp â€” Linux opt5
 
 Native Linux fork of FE3H Recomp, optimized and tested on a Steam Deck LCD. Based on [FE3H Recomp](https://git.onerag90.de/recomps/fe3h-recomp) and [LASRecomp](https://github.com/peiikai/LASRecomp).
 
@@ -13,7 +13,7 @@ The game, DLC, generated game library, shaders extracted from the game, saves an
 
 SteamOS supplies Python 3 and kdialog. Other Linux installations need these for the installer, a Vulkan 1.3 driver and an x86-64 CPU with AVX2/FMA. Other GPUs have not received the same validation as the Deck LCD. Allow space for a separate complete copy of the game and temporary compilation files. No SteamOS system packages or read-only system settings are changed.
 
-The default data folder is `~/.local/share/fe3hrecomp`. Saves remain in its `save` folder. Configuration and saves are retained when reinstalling. The Deck launcher keeps dock mode and starts new installations at `match`; available resolutions remain adjustable in F1 → Video. Closing the application releases its process memory; suspension retains it.
+The default data folder is `~/.local/share/fe3hrecomp`. Saves remain in its `save` folder. Configuration and saves are retained when reinstalling. The Deck launcher keeps dock mode and starts new installations at `match`; available resolutions remain adjustable in F1 â†’ Video. Closing the application releases its process memory; suspension retains it.
 
 Command-line installation and recovery are described in [docs/linux.md](docs/linux.md). Reinstallation and updates use the installer so the previous application and game files remain recoverable. The private cloud-save synchronization used during development is not required or included.
 
@@ -34,4 +34,4 @@ Data mods for the base game and DLC live in `extracted/mods`, separately from th
 
 See [docs/linux.md](docs/linux.md) for the Linux build, synthetic tests and FE3H smoke test. CI does not need the game. The public reference is `v0.2.3`, commit `4e21e7bff4a2df979e57ca82639c72931c726423`; selected later fixes and the native fork's changes are documented in [UPSTREAM.md](UPSTREAM.md).
 
-Project code retains the [MIT license](LICENSE) and upstream notices. Third-party components retain their own licenses. The standalone generator includes Unicorn; its notices and corresponding source archive accompany the distribution. See [THIRD_PARTY.md](THIRD_PARTY.md). The application icon in `docs/icon` is an original geometric design under MIT. The launcher background, when available, is generated locally from the user's movie files.
+Project code retains the [MIT license](LICENSE) and upstream notices. Third-party components retain their own licenses. The standalone generator includes Unicorn; its notices and corresponding source archive accompany the distribution. See [THIRD_PARTY.md](THIRD_PARTY.md). The application icon in `docs/icon` was supplied by the maintainer for this distribution; it is not covered by the code’s MIT license. The launcher background, when available, is generated locally from the user's movie files.

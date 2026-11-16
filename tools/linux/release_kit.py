@@ -31,7 +31,7 @@ def main():
     shutil.copy2(repo / 'docs/validation.md', kit / 'VALIDATION.md')
     with app.open('rb') as stream:
         sha = hashlib.file_digest(stream, 'sha256').hexdigest()
-    shutil.copy2(repo / 'docs/icon/icon.svg', kit / 'icon.svg')
+    shutil.copy2(repo / 'docs/icon/icon_1024.png', kit / 'icon.png')
     (kit / 'release.json').write_text(json.dumps({'appimage': app.name, 'sha256': sha, 'version': '0.2.3-linux-opt5'}, indent=2) + '\n')
     hashes = []
     for f in sorted(kit.iterdir()):
