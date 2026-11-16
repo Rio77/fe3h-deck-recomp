@@ -39,7 +39,7 @@ La release ofrece un paquete de instalación para Steam Deck que ya contiene la 
 3. Esperá a que termine la copia y compilación local. La importación completa probada en la Deck tardó unos 43 minutos; puede variar según hardware, archivos y caché. No es el tiempo habitual de arranque del juego.
 4. Abrí **FE3H Deck Recomp** desde el escritorio. Para usar el modo Juego, agregá manualmente el **FE3H.sh** instalado a Steam como juego externo.
 
-La carpeta de datos predeterminada continúa siendo `~/.local/share/fe3hrecomp`; los guardados están en `save`. Las instalaciones nuevas en Deck usan modo dock y `match`. Abrí ajustes con **F1** o **Back + Start**. El instalador no modifica SteamOS ni añade juegos a Steam sin intervención.
+El instalador gráfico recomienda `~/Games/FE3H-Deck-Recomp` y permite otro destino. En consola, sin `--root`, se mantiene `~/.local/share/fe3hrecomp`; los guardados están en `save`. Las instalaciones nuevas en Deck usan modo dock y `match`. Abrí ajustes con **F1** o **Back + Start**. El instalador no modifica SteamOS ni añade juegos a Steam sin intervención.
 
 **Actualización y recuperación:** utilizá el instalador completo, no el actualizador automático de upstream ni una sobrescritura directa. Prepara y verifica una instalación separada, conserva partidas/configuración y retiene los datos extraídos anteriores. Consultá [instalación y recuperación](docs/linux.md) para las opciones de consola y `status` / `recover`.
 
@@ -87,3 +87,5 @@ Proyecto de aficionados sin afiliación ni respaldo de Nintendo, Intelligent Sys
 El código conserva la **[licencia MIT](LICENSE)** original y los avisos de copyright de Peiikai y onerag90. Las dependencias mantienen sus licencias. El instalador incluye los avisos en `licenses/`. El archivo completo de fuentes correspondientes, incluidos FFmpeg y Unicorn, se descarga por separado como TAR.GZ desde la misma release. Distribuí esas fuentes y avisos junto a los binarios. Consultá [THIRD_PARTY.md](THIRD_PARTY.md).
 
 El mantenedor proporcionó el icono para esta distribución. La licencia MIT del código no cubre automáticamente la imagen ni concede derechos sobre sus personajes o emblemas. El fondo opcional del lanzador se genera localmente desde los archivos del usuario.
+
+El instalador permite elegir el destino y recomienda `~/Games/FE3H-Deck-Recomp`. No mueve instalaciones existentes. Para actualizar, seleccioná su misma carpeta. La opción de consola `--root` conserva su significado.

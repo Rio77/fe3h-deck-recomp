@@ -33,6 +33,62 @@ def pick(label):
     return Path(text)
 
 
+def choose_destination(args):
+    if args.root is not None:
+        return args.root.expanduser()
+    if args.command != 'install' or args.headless:
+        return DEFAULT_ROOT
+    recommended = Path.home() / 'Games/FE3H-Deck-Recomp'
+    code, _ = dialog('--yesnocancel', f'Install into:\n{recommended}',
+                     '--yes-label', 'Use recommended folder', '--no-label', 'Choose another folder')
+    if code == 0:
+        return recommended
+    if code == 1:
+        return pick('Choose or create the exact installation folder')
+    raise InstallError('Installation cancelled. No installation was created.')
+
+
+def validate_destination(path, command):
+    path = Path(path).expanduser()
+    if path.is_symlink():
+        raise InstallError('Choose a real installation folder, not a symbolic link.')
+    root = path.resolve()
+    if command != 'install':
+        if not root.is_dir() or not (root / 'current.json').is_file():
+            raise InstallError('Installation unavailable. Check its path and mount the storage device first.')
+        return root
+    if root in (Path('/'), Path.home().resolve()) or root == HERE or root.is_relative_to(HERE):
+        raise InstallError('Choose a dedicated folder outside the downloaded installer.')
+    if root.exists() and any(root.iterdir()):
+        recognized = (root / 'current.json').is_file()
+        if not recognized and (root / '.installer-work').is_dir():
+            recognized = any(p.is_dir() and (p / '.owned').is_file() and (p / '.owned').read_text().strip() == p.name for p in (root / '.installer-work').iterdir())
+        if not recognized and (root / 'extracted').is_dir():
+            validate_exefs(root / 'extracted/exefs')
+            validate_romfs(root / 'extracted/romfs')
+            recognized = True
+        if not recognized:
+            raise InstallError('The selected folder contains unrelated files. Choose an empty folder or an existing FE3H installation.')
+    return root
+
+
+def probe_destination(root):
+    import tempfile
+    parent = root
+    while not parent.exists():
+        parent = parent.parent
+    try:
+        with tempfile.TemporaryDirectory(prefix='.fe3h-check-', dir=parent) as temporary:
+            base = Path(temporary)
+            script = base / 'run.sh'
+            script.write_text('#!/bin/sh\nexit 0\n')
+            script.chmod(0o700)
+            (base / 'link').symlink_to(script)
+            subprocess.run([str(script)], check=True, timeout=10)
+    except (OSError, subprocess.SubprocessError) as e:
+        raise InstallError('This destination must support writing, symbolic links and executable files: ' + str(e)) from e
+
+
 def environment(root, profile=True):
     env = dict(os.environ)
     for key in list(env):
@@ -152,10 +208,13 @@ def install(args, installation):
         if dialog('--yesno', 'Do you want to install your extracted DLC too?')[0] == 0:
             dlc = pick('Select the folder containing the FE3H DLC packs')
     packs = validate_dlc(dlc)
+    for original in [exefs, romfs, *packs.values()]:
+        if root == original.resolve() or root.is_relative_to(original.resolve()):
+            raise InstallError('The installation destination cannot be inside the original game files.')
     if args.check_only:
         print(f'Validated FE3H 1.2.0 and {len(packs)} DLC packs.')
         return
-    required = sum(p.stat().st_size for p in files_in(romfs))
+    required = sum(p.stat().st_size for p in files_in(exefs)) + sum(p.stat().st_size for p in files_in(romfs))
     required += sum(p.stat().st_size for pack in packs.values() for p in files_in(pack / 'romfs'))
     if shutil.disk_usage(root).free < required + app_source.stat().st_size + 4 * 1024**3:
         raise InstallError('Not enough free space to prepare a separate installation. The current installation was preserved.')
@@ -208,7 +267,7 @@ def install(args, installation):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('command', choices=['install', 'launch', 'recover', 'status'], nargs='?', default='install')
-    parser.add_argument('--root', type=Path, default=DEFAULT_ROOT)
+    parser.add_argument('--root', type=Path, default=None)
     parser.add_argument('--exefs', type=Path)
     parser.add_argument('--romfs', type=Path)
     parser.add_argument('--dlc', type=Path)
@@ -221,6 +280,11 @@ def main():
         raise KeyboardInterrupt()
     signal.signal(signal.SIGTERM, interrupted)
     try:
+        args.root = validate_destination(choose_destination(args), args.command)
+        if args.command == 'install':
+            probe_destination(args.root)
+            if not args.headless and dialog('--yesno', f'Prepare FE3H in:\n{args.root}\nSaves and settings will be kept in this folder.')[0] != 0:
+                raise InstallError('Installation cancelled. No installation was created.')
         installation = Installation(args.root)
         with installation.lock():
             result = installation.recover()

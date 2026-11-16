@@ -76,3 +76,5 @@ To assemble the installer and copy its separate corresponding-source archive int
 ```sh
 python3 tools/linux/release_kit.py /path/to/application.AppImage /path/to/output --sources /path/to/corresponding-sources.tar.gz
 ```
+
+Graphical installation now offers `~/Games/FE3H-Deck-Recomp` or another exact destination folder. Existing installations are not moved. Command-line `--root` selects an exact destination; command-line defaults remain unchanged. Reuse the same destination to update an installation.

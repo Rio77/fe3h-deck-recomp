@@ -39,7 +39,7 @@ The release provides one Steam Deck installation package, which already contains
 3. Wait for local copying and compilation. In the full Deck import test this took about 43 minutes; other hardware and input/cache conditions vary. This is separate from normal game startup.
 4. Open **FE3H Deck Recomp** from the desktop. To play in Game Mode, add the installed **FE3H.sh** to Steam as a non-Steam game manually.
 
-The default data folder remains `~/.local/share/fe3hrecomp`; saves are in `save`. New Deck installations default to dock mode and `match`. Use **F1** or **Back + Start** for settings. The installer does not modify SteamOS or silently edit the Steam library.
+Graphical installation recommends `~/Games/FE3H-Deck-Recomp` and allows another destination. The command-line default remains `~/.local/share/fe3hrecomp`; saves are in `save`. New Deck installations default to dock mode and `match`. Use **F1** or **Back + Start** for settings. The installer does not modify SteamOS or silently edit the Steam library.
 
 **Updating and recovery:** use the complete installer, not an upstream automatic updater or a blind overwrite. It prepares and verifies a separate installation, preserves saves/configuration and retains the previous extracted data. See [installation and recovery](docs/linux.md) for command-line options and `status` / `recover`.
 
@@ -87,3 +87,5 @@ This is a fan project, not affiliated with or endorsed by Nintendo, Intelligent 
 Project code retains the upstream **[MIT License](LICENSE)**, including the copyright notices of Peiikai and onerag90. Third-party components keep their own licenses. The installer includes notices in `licenses/`. The complete corresponding-source archive, including FFmpeg and Unicorn, is a separate TAR.GZ download in the same release. Distribute those sources and notices alongside the binaries. See [THIRD_PARTY.md](THIRD_PARTY.md).
 
 The application icon was supplied by the maintainer for this distribution. It is not covered automatically by the code’s MIT license, which grants no rights to the depicted characters or emblems. The optional launcher background is generated locally from the user’s files.
+
+Graphical installation now offers `~/Games/FE3H-Deck-Recomp` or another exact destination folder. Existing installations are not moved. Command-line `--root` selects an exact destination; command-line defaults remain unchanged. Reuse the same destination to update an installation.

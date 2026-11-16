@@ -25,7 +25,7 @@ All four modules are required by this installer. Do not remove or rename them. `
 
 ## Installed files
 
-Default location: `~/.local/share/fe3hrecomp`. It contains the prepared game, a copy of the AppImage, saves, configuration and installed launcher. After installation through Install.desktop completes successfully, this downloaded package may be removed. This does not apply to the direct-AppImage fallback: keep the AppImage you use to play. Do not remove the installed data folder.
+Graphical default: `~/Games/FE3H-Deck-Recomp`, or your selected folder. Command-line default without `--root`: `~/.local/share/fe3hrecomp`. It contains the prepared game, a copy of the AppImage, saves, configuration and installed launcher. After installation through Install.desktop completes successfully, this downloaded package may be removed. This does not apply to the direct-AppImage fallback: keep the AppImage you use to play. Do not remove the installed data folder.
 
 This installer includes the fix for the false failure reported when closing the graphical importer after successful compilation. Existing saves and settings are preserved. There is no need to reinstall a successfully completed installation.
 
@@ -35,3 +35,5 @@ Keep `LICENSE`, `THIRD_PARTY.md`, `UPSTREAM.md` and `licenses/` with this packag
 https://github.com/Rio77/fe3h-deck-recomp/releases
 
 No game files, DLC or cloud-save credentials are included.
+
+Graphical installation now offers `~/Games/FE3H-Deck-Recomp` or another exact destination folder. Existing installations are not moved. Command-line `--root` selects an exact destination; command-line defaults remain unchanged. Reuse the same destination to update an installation.
