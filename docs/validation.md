@@ -22,3 +22,38 @@ The earlier manual check included video, combat, zone changes and three physical
 Opt4 showed a libMangoHud failure during an instrumented close, outside the timed window. The final candidate close and the prolonged run did not reproduce it. It has not been established as a normal-use crash without MangoHUD.
 
 Captures verify scene, camera and basic image sanity; they are not an identical-input pixel replay. Private captures, shaders, saves and diagnostic logs are excluded from the public source and distribution.
+
+## Distribution checks
+
+Delivered AppImage SHA-256: `43efeda9587f9e36672fe86a01390b2dbac854c5a945ec1fb3a1e4945734f8fb`.
+
+A complete local import rebuilt the game from original 1.2.0 modules, merged romfs
+and six DLC packs in paths containing spaces. Saves and configuration were
+unchanged by installation. This import used the preceding package build
+`b10ecfd700e18e8ca21c8f420161f9fb2f84a0466802ee6bab3325aca64ee459`;
+the final AppImage then verified and ran that independently generated library.
+The final packaging changes add importer validation and Deck defaults, without
+changing the generated-library compatibility ID or translation interface.
+
+The final managed launcher loaded the monastery, reached the scheduled 4,800-frame
+capture, blocked a simultaneous launcher and exited normally with saves unchanged.
+The capture was reviewed against the opt4 reference for scene/image sanity.
+The first capture attempt failed because the test harness had not created its
+output directory; this was corrected without repeating successful game compilation.
+
+An actual interrupted reinstall started compilation, was cancelled, left no
+children in its private application/compiler session and preserved the installed
+manifest, saves and configuration. Nineteen installer/audit/process/file tests
+passed, including replacement recovery, corrupt inputs and unrelated-process
+preservation. A base-only layout with the newly generated library passed original
+file validation and dynamic loading; a separate full base-only compilation was
+not repeated because the module inputs were identical.
+
+Actual AppDir contents and exported sources passed the independent artifact audit.
+The desktop entry passed desktop-file-validate. The GitHub workflow is prepared
+but has not run on GitHub: no repository or release was created or published.
+
+This remains a release candidate. A full identical-input framebuffer comparison
+of opt4 and opt5 has not been completed, so the strict image acceptance gate is
+not claimed as passed. Production opt4 remains selected pending that check;
+functional smoke results do not substitute for pixel equivalence.
