@@ -147,6 +147,9 @@ def desktop_files(root, make_desktop=True):
     launcher = root / 'FE3H.sh'
     launcher.write_text('#!/bin/sh\nHERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\nexec python3 "$HERE/manage.py" launch --root "$HERE"\n', encoding='utf-8')
     launcher.chmod(0o755)
+    settings = root / 'Settings.sh'
+    settings.write_text('#!/bin/sh\nHERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)\nexec python3 "$HERE/manage.py" settings --root "$HERE"\n', encoding='utf-8')
+    settings.chmod(0o755)
     # Kits ship icon.png; source-based installation/recovery uses docs/icon.
     # An installed launcher may also refresh itself: do not copy a file onto itself.
     icon = next((p for p in (HERE / 'icon.png', HERE.parent.parent / 'docs/icon/icon_1024.png') if p.is_file()), None)
@@ -157,6 +160,10 @@ def desktop_files(root, make_desktop=True):
         temporary = root / 'icon.png.tmp'
         shutil.copy2(icon, temporary)
         os.replace(temporary, target_icon)
+    quoted_settings = str(settings).replace('\\', '\\\\').replace('"', '\\"').replace('`', '\\`').replace('$', '\\$')
+    settings_entry = f'[Desktop Entry]\nType=Application\nName=Settings\nComment=Configure FE3H Deck Recomp and mods\nExec="{quoted_settings}"\nIcon={root / "icon.png"}\nTerminal=false\nCategories=Game;\n'
+    (root / 'Settings.desktop').write_text(settings_entry, encoding='utf-8')
+    (root / 'Settings.desktop').chmod(0o755)
     if not make_desktop:
         return
     desktop = subprocess.check_output(['xdg-user-dir', 'DESKTOP'], text=True).strip()
@@ -164,6 +171,9 @@ def desktop_files(root, make_desktop=True):
     quoted = str(launcher).replace('\\', '\\\\').replace('"', '\\"').replace('`', '\\`').replace('$', '\\$')
     dest.write_text(f'[Desktop Entry]\nType=Application\nName=FE3H Deck Recomp\nExec="{quoted}"\nIcon={root / "icon.png"}\nTerminal=false\nCategories=Game;\n', encoding='utf-8')
     dest.chmod(0o755)
+    settings_dest = Path(desktop) / 'FE3H-Deck-Recomp-Settings.desktop'
+    settings_dest.write_text(settings_entry, encoding='utf-8')
+    settings_dest.chmod(0o755)
 
 
 def wait_for_preparation(proc, data, headless, output, *, timeout=7200, settle=3):
@@ -266,7 +276,7 @@ def install(args, installation):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['install', 'launch', 'recover', 'status'], nargs='?', default='install')
+    parser.add_argument('command', choices=['install', 'launch', 'settings', 'recover', 'status'], nargs='?', default='install')
     parser.add_argument('--root', type=Path, default=None)
     parser.add_argument('--exefs', type=Path)
     parser.add_argument('--romfs', type=Path)
@@ -290,12 +300,13 @@ def main():
             result = installation.recover()
             if args.command == 'install':
                 install(args, installation)
-            elif args.command == 'launch':
+            elif args.command in ('launch', 'settings'):
                 app = app_for(installation.root)
                 env = environment(installation.root)
                 profile = env.get('FE3H_MANAGED_HEAP') == '1'
                 affinity = (lambda: os.sched_setaffinity(0, {2, 3, 4, 5, 6, 7})) if profile and (os.cpu_count() or 1) >= 8 else None
-                proc = subprocess.Popen([str(app), '--play'], cwd=installation.root, env=env, preexec_fn=affinity, start_new_session=True)
+                command = [str(app)] + (['--play'] if args.command == 'launch' else [])
+                proc = subprocess.Popen(command, cwd=installation.root, env=env, preexec_fn=affinity, start_new_session=True)
                 try:
                     return proc.wait()
                 finally:
@@ -312,7 +323,7 @@ def main():
         return 130
     except (OSError, ValueError, InstallError, subprocess.SubprocessError) as e:
         print(str(e), file=sys.stderr)
-        if not args.headless and args.command in ('launch', 'install') and shutil.which('kdialog'):
+        if not args.headless and args.command in ('launch', 'settings', 'install') and shutil.which('kdialog'):
             dialog('--error', str(e))
         return 1
 

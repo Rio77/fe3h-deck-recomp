@@ -6,7 +6,7 @@ The installer uses the bundled AppImage to prepare and compile the game. Compila
 
 ## If the installer fails: use the AppImage directly
 
-Close the installer first, then launch **FE3H-Deck-Recomp-0.2.3-linux-opt5-linux-x86_64.AppImage** directly in Desktop Mode.
+Close the installer first, then launch **FE3H-Deck-Recomp-0.2.4-linux-x86_64.AppImage** directly in Desktop Mode.
 
 If the game is not already detected, open **Settings > Game Files**, select the folder containing your own FE3H 1.2.0 `exefs` and merged `romfs`, and run **Set up game files**. Wait for copying and compilation to finish, then choose **Play**. Your input files still need to be complete and valid.
 
@@ -37,3 +37,8 @@ https://github.com/Rio77/fe3h-deck-recomp/releases
 No game files, DLC or cloud-save credentials are included.
 
 Graphical installation now offers `~/Games/FE3H-Deck-Recomp` or another exact destination folder. Existing installations are not moved. Command-line `--root` selects an exact destination; command-line defaults remain unchanged. Reuse the same destination to update an installation.
+
+
+### 0.2.4: Settings launcher
+
+Open **Settings.desktop** in the installed folder (or **Settings** on the desktop) to configure mods before starting the game. It uses the same data folder and locks as the normal launcher. Close the running game first. Mod changes take effect on the next start. Opening the internal AppImage directly may select a different data folder. This release updates Linux packaging and launchers; the game engine remains the validated opt5 build, not upstream engine 0.2.4.
