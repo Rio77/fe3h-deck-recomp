@@ -1,6 +1,6 @@
 # FE3H Deck Recomp
 
-[EspaÃ±ol](README.es.md) Â· [Installation and recovery](docs/linux.md) Â· [Validation](docs/validation.md)
+[Español](README.es.md) · [Installation and recovery](docs/linux.md) · [Validation](docs/validation.md)
 
 A native Linux adaptation of *Fire Emblem: Three Houses*, optimized and tested on the **Steam Deck LCD**. Based on **FE3H Recomp by onerag90**, itself built on **LASRecomp by Peiikai**. This is an independently maintained fork, not an official release of either upstream project.
 
@@ -32,7 +32,7 @@ At `match`, paired monastery tests improved p99 frame time by **2.95%** and APU 
 
 ## Installing a release on SteamOS
 
-1. Obtain the complete `FE3H-Deck-Recomp-opt5-installer.tar.gz` from this projectâ€™s Releases section once published. Extract it into a writable folder in Desktop Mode.
+1. Download `FE3H-Deck-Recomp-0.2.3-linux-opt5-steamdeck.tar.gz` from [Releases](https://github.com/Rio77/fe3h-deck-recomp/releases/latest). Extract it into a writable folder in Desktop Mode.
 2. Keep the package together and open **Install.desktop**. Allow execution if KDE asks. Select your `exefs`, merged `romfs`, and optionally your DLC directory.
 3. Wait for local copying and compilation. In the full Deck import test this took about 43 minutes; other hardware and input/cache conditions vary. This is separate from normal game startup.
 4. Open **FE3H Deck Recomp** from the desktop. To play in Game Mode, add the installed **FE3H.sh** to Steam as a non-Steam game manually.
@@ -47,7 +47,7 @@ Provide DLC as folders such as `dlc/010055D009F79001/romfs/...`; all six packs a
 
 ## Building and testing
 
-Use `make appimage ARCH=x86_64` with podman and network access for build dependencies. Application builds and synthetic CI tests do not need game files; game code is generated only from the userâ€™s files. See [build instructions](docs/linux.md), the pinned dependency recipes and `.github/workflows/linux.yml`. CI is prepared but has not run on a hosted GitHub repository yet.
+Use `make appimage ARCH=x86_64` with podman and network access for build dependencies. Application builds and synthetic CI tests do not need game files; game code is generated only from the user’s files. See [build instructions](docs/linux.md), the pinned dependency recipes and `.github/workflows/linux.yml`. The [first public CI run](https://github.com/Rio77/fe3h-deck-recomp/actions/runs/43784595531) passed the application build and synthetic checks.
 
 ## Known issues and limits
 
@@ -61,21 +61,21 @@ For a bug report, include version, SteamOS/driver version, resolution, dock sett
 
 ## Credits
 
-- **[FE3H Recomp](https://git.onerag90.de/recomps/fe3h-recomp), by onerag90 and contributors** â€” the original Three Houses adaptation, game-specific services, audio, movies, shaders and tools.
-- **[LASRecomp](https://github.com/peiikai/LASRecomp), by Peiikai and contributors** â€” the foundational static recompiler, runtime, renderer and tooling. See its README for the full upstream credits.
-- **Ryujinx contributors** â€” the audio rendererâ€™s reverb and auxiliary processing, under MIT; notice retained in `third_party/ryujinx/LICENSE.txt`.
-- **Dear ImGui, SDL, FFmpeg, shaderc/glslang/SPIRV-Tools, Vulkan Memory Allocator and SMAA contributors** â€” interface, multimedia and graphics components.
+- **[FE3H Recomp](https://git.onerag90.de/recomps/fe3h-recomp), by onerag90 and contributors** — the original Three Houses adaptation, game-specific services, audio, movies, shaders and tools.
+- **[LASRecomp](https://github.com/peiikai/LASRecomp), by Peiikai and contributors** — the foundational static recompiler, runtime, renderer and tooling. See its README for the full upstream credits.
+- **Ryujinx contributors** — the audio renderer’s reverb and auxiliary processing, under MIT; notice retained in `third_party/ryujinx/LICENSE.txt`.
+- **Dear ImGui, SDL, FFmpeg, shaderc/glslang/SPIRV-Tools, Vulkan Memory Allocator and SMAA contributors** — interface, multimedia and graphics components.
 - **[AMD FidelityFX Super Resolution 1](https://github.com/GPUOpen-Effects/FidelityFX-FSR)** — retained upstream shader helpers under MIT; no new opt5 FSR features were enabled.
-- **Capstone, Unicorn, python-lz4, PyInstaller, Python and Zig contributors** â€” local generation, compilation and packaging.
-- **Baloo 2 and EB Garamond authors**, including Georg Duffner â€” the distributed open fonts.
-- **Switchbrew and the Switch homebrew community** â€” hardware and system documentation.
+- **Capstone, Unicorn, python-lz4, PyInstaller, Python and Zig contributors** — local generation, compilation and packaging.
+- **Baloo 2 and EB Garamond authors**, including Georg Duffner — the distributed open fonts.
+- **Switchbrew and the Switch homebrew community** — hardware and system documentation.
 
-Exact component versions, licenses and redistribution notices are listed in [THIRD_PARTY.md](THIRD_PARTY.md) and bundled in the AppImage. Credits apply to the components actually retained; this fork does not ship LASRecompâ€™s randomizer or the excluded FSR integration.
+Exact component versions, licenses and redistribution notices are listed in [THIRD_PARTY.md](THIRD_PARTY.md) and bundled in the AppImage. Credits apply to the components actually retained; this fork does not ship LASRecomp’s randomizer or the excluded FSR integration.
 
 ## Legal and license
 
 This is a fan project, not affiliated with or endorsed by Nintendo, Intelligent Systems or Koei Tecmo. *Fire Emblem* and its characters/emblems remain the property of their respective owners.
 
-Project code retains the upstream **[MIT License](LICENSE)**, including the copyright notices of Peiikai and onerag90. Third-party components keep their own licenses. Distribute the corresponding-source archive and notices alongside the binary kit, including FFmpeg and Unicorn sources. See [THIRD_PARTY.md](THIRD_PARTY.md).
+Project code retains the upstream **[MIT License](LICENSE)**, including the copyright notices of Peiikai and onerag90. Third-party components keep their own licenses. The single installer download includes notices in `licenses/` and a complete corresponding-source archive in `sources/`, including FFmpeg and Unicorn. Keep both directories when redistributing it. See [THIRD_PARTY.md](THIRD_PARTY.md).
 
-The application icon was supplied by the maintainer for this distribution. It is not covered automatically by the codeâ€™s MIT license, which grants no rights to the depicted characters or emblems. The optional launcher background is generated locally from the userâ€™s files.
+The application icon was supplied by the maintainer for this distribution. It is not covered automatically by the code’s MIT license, which grants no rights to the depicted characters or emblems. The optional launcher background is generated locally from the user’s files.

@@ -1,6 +1,6 @@
 # Third-party notices and corresponding sources
 
-The runtime, generator and compiler are separate components. Each keeps its own license. Full notices are collected from the exact build inputs into `usr/share/licenses/fe3hrecomp` inside the AppImage. The release kit also exposes these notices without requiring extraction.
+The runtime, generator and compiler are separate components. Each keeps its own license. Full notices are collected from the exact build inputs into `usr/share/licenses/fe3hrecomp` inside the AppImage. The installer kit exposes these notices in `licenses/` without extracting the AppImage.
 
 | Component | Origin / license information |
 |---|---|
@@ -22,7 +22,7 @@ The runtime, generator and compiler are separate components. Each keeps its own 
 
 The generator is frozen from the project's Python sources using `tools/linux/rando_helper.sh` (the inherited filename is historical; it builds no randomizer). Its package report records wheel URLs and hashes. `tools/linux/Containerfile`, `build_deps.sh`, `fetch_zig.sh`, the helper script and PyInstaller spec describe the build and installation steps. No game files are needed to rebuild the application or generator.
 
-Publish the source distribution alongside the binary kit, including the FFmpeg and Unicorn corresponding-source archives and their checksum manifest. These are separate from game data and must not be dropped from a public release. The project's own generator sources and build scripts are included too. No private source-download credentials are required.
+The public release has one installer archive. Its `sources/` directory includes the complete corresponding-source distribution, with the project sources, FFmpeg and Unicorn archives and their checksum manifest. These are separate from game data; retain `sources/` and `licenses/` when redistributing the installer. The project's own generator sources and build scripts are included too. No private source-download credentials are required.
 
 Users may rebuild or replace components. For a modified AppImage, regenerate the local release checksum manifest before using the installer; there is no signature lock or remote authorization service. An AppImage can also be extracted to inspect its files and notices. The bundled shared FFmpeg libraries can be replaced in a rebuilt AppDir.
 

@@ -26,7 +26,7 @@ Use `--root "/path/to/FE3H data"` to choose a dedicated installation folder. `--
 
 The installer prepares a separate workspace, runs the graphical importer or its headless equivalent, and verifies the generated library with the bundled application before committing. Existing saves and configuration are outside the replacement. The new application is content-addressed, and the previous extracted folder is retained in `.recovery`. A durable journal recovers interruptions between directory replacement and application selection. Failed input/builds do not replace a working installation.
 
-The initial profile is dock at `match`; F1 Ã¢â€ â€™ Video can change resolution. The AppImage includes Deck profile defaults, and the installed `FE3H.sh` adds installation recovery and a launch lock. To add it to Steam, use Add a Non-Steam Game Ã¢â€ â€™ Browse Ã¢â€ â€™ All Files and select the installed `FE3H.sh`. No library entry is created silently. To reinstall or update existing game files, use the installer. The native import screen preserves an existing compiled installation instead of deleting it for an unverified replacement. `FE3H_DECK_PROFILE=0` disables embedded Deck defaults when running the AppImage directly for diagnostics.
+The initial profile is dock at `match`; F1 → Video can change resolution. The AppImage includes Deck profile defaults, and the installed `FE3H.sh` adds installation recovery and a launch lock. To add it to Steam, use Add a Non-Steam Game → Browse → All Files and select the installed `FE3H.sh`. No library entry is created silently. To reinstall or update existing game files, use the installer. The native import screen preserves an existing compiled installation instead of deleting it for an unverified replacement. `FE3H_DECK_PROFILE=0` disables embedded Deck defaults when running the AppImage directly for diagnostics.
 
 The fallback game font is DejaVu Sans from the host. It is present on the tested Deck; other distributions need a TrueType DejaVu Sans font or their own supported console-font dump. Only OFL launcher fonts are distributed.
 
@@ -69,4 +69,10 @@ DEPS=build/linux/x86_64/deps bash tools/linux/check_synthetic.sh
 
 `tools/linux/audit_release.py` audits the actual source export and AppDir, separately from `.gitignore`. The release smoke test is FE3H-specific and uses an isolated data folder and copied save. Its private inputs and captures must not be committed or shipped. Full-game import tests require owned copies; CI runs only synthetic checks and a game-free application build.
 
-Publish the corresponding-source distribution and notices alongside the binary kit. Do not publish generated game libraries, extracted/translated game shaders, caches, saves, game images/movies, diagnostic captures or logs, private launchers, access keys, cloud tokens or cloud configuration.
+The single installer download contains the corresponding-source archive in `sources/` and notices in `licenses/`. Retain them when redistributing the installer. Do not publish generated game libraries, extracted/translated game shaders, caches, saves, game images/movies, diagnostic captures or logs, private launchers, access keys, cloud tokens or cloud configuration.
+
+To assemble that single installer after building the AppImage and complete corresponding-source archive:
+
+```sh
+python3 tools/linux/release_kit.py /path/to/application.AppImage /path/to/output --sources /path/to/corresponding-sources.tar.gz
+```
