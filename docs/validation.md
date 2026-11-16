@@ -25,7 +25,7 @@ Captures verify scene, camera and basic image sanity; they are not an identical-
 
 ## Distribution checks
 
-Delivered AppImage SHA-256: `6f1428bb90b770ee697e31961458e2a361e316d8b7052e2ac118e12103aae736`.
+The installer records the bundled AppImage SHA-256 in `release.json`; its `SHA256SUMS` verifies the packaged files.
 
 A complete local import rebuilt the game from original 1.2.0 modules, merged romfs
 and six DLC packs in paths containing spaces. Saves and configuration were

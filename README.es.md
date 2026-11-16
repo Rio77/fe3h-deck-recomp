@@ -32,7 +32,7 @@ En `match`, las comparaciones del monasterio mejoraron el p99 del tiempo de foto
 
 ## Instalar una publicación en SteamOS
 
-La release ofrece el instalador completo para Steam Deck, la AppImage independiente, el ZIP con el código del proyecto y el TAR.GZ de fuentes correspondientes. Para instalar, utilizá el instalador indicado abajo; las descargas de fuentes sirven para compilar y cumplir las licencias, no son pasos adicionales de instalación.
+La release ofrece un paquete de instalación para Steam Deck que ya contiene la AppImage. Descargá ese instalador para jugar. El código del proyecto en ZIP/TAR.GZ y las fuentes correspondientes completas en TAR.GZ están disponibles por separado para compilar y cumplir las licencias; no son pasos adicionales de instalación.
 
 1. Descargá `FE3H-Deck-Recomp-0.2.3-linux-opt5-steamdeck.tar.gz` desde [Releases](https://github.com/Rio77/fe3h-deck-recomp/releases/latest). Extraelo en una carpeta escribible desde el modo escritorio.
 2. Conservá todos sus archivos juntos y abrí **Install.desktop**. Permití la ejecución si KDE lo solicita. Seleccioná tus `exefs`, `romfs` y, opcionalmente, la carpeta de DLC.

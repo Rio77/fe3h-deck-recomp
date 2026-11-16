@@ -32,7 +32,7 @@ At `match`, paired monastery tests improved p99 frame time by **2.95%** and APU 
 
 ## Installing a release on SteamOS
 
-The release provides the complete Steam Deck installer, a standalone AppImage, the project source ZIP and the complete corresponding-source TAR.GZ. For installation, use the installer below; the source downloads are for building and license compliance, not additional installation steps.
+The release provides one Steam Deck installation package, which already contains the AppImage. Download that installer to play. The project source ZIP/TAR.GZ and complete corresponding-source TAR.GZ are available separately for building and license compliance; they are not extra installation steps.
 
 1. Download `FE3H-Deck-Recomp-0.2.3-linux-opt5-steamdeck.tar.gz` from [Releases](https://github.com/Rio77/fe3h-deck-recomp/releases/latest). Extract it into a writable folder in Desktop Mode.
 2. Keep the package together and open **Install.desktop**. Allow execution if KDE asks. Select your `exefs`, merged `romfs`, and optionally your DLC directory.
