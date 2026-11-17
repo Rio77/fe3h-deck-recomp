@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "../hle.h"
+#include "../text_utf8.h"
 
 int menu_keyboard_run(const char *initial, int max_len, char *out, int cap);  // runtime/ui/menu.mm
 
@@ -19,11 +20,9 @@ HLE_FUNC("_ZN2nn5swkbd12ShowKeyboardEPNS0_6StringERKNS0_15ShowKeyboardArgE", swk
     int max_len = (int)*(const int32_t *)(uintptr_t)(arg + 0x3ac);
     uint32_t off = *(const uint32_t *)(uintptr_t)(arg + 0x3c0), n = *(const uint32_t *)(uintptr_t)(arg + 0x3c4);
     uint64_t wb = LD64(arg + 0x4d0);
+    // The initial text, UTF-16 -> UTF-8 (surrogate pairs included), whole characters only
     char initial[96] = "";
-    for (uint32_t i = 0; wb && i < n && i < sizeof initial - 1; i++) {
-        uint16_t ch = *(const uint16_t *)(uintptr_t)(wb + off + 2 * i);
-        initial[i] = ch < 0x80 ? (char)ch : '?';
-    }
+    text_utf16_to_utf8(wb ? (const uint16_t *)(uintptr_t)(wb + off) : NULL, n, initial, sizeof initial);
     char text[96];
     int ok = menu_keyboard_run(initial, max_len, text, sizeof text);
     if (!ok) snprintf(text, sizeof text, "%s", initial);  // cancelled: keep what was there
@@ -31,6 +30,12 @@ HLE_FUNC("_ZN2nn5swkbd12ShowKeyboardEPNS0_6StringERKNS0_15ShowKeyboardArgE", swk
     if (ptr && size) {
         memset((void *)(uintptr_t)ptr, 0, size);
         snprintf((char *)(uintptr_t)ptr, size, "%s", text);
+        // A short destination must not retain a partial UTF-8 character.
+        size_t copied = strlen((char *)(uintptr_t)ptr);
+        if (copied < strlen(text)) {
+            while (copied && ((unsigned char)text[copied] & 0xc0) == 0x80) --copied;
+            ((char *)(uintptr_t)ptr)[copied] = 0;
+        }
     }
     c->x[0] = 0;
 }

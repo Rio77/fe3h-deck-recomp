@@ -27,3 +27,6 @@ The complete corresponding-source TAR.GZ is distributed separately beside the in
 Users may rebuild or replace components. For a modified AppImage, regenerate the local release checksum manifest before using the installer; there is no signature lock or remote authorization service. An AppImage can also be extracted to inspect its files and notices. The bundled shared FFmpeg libraries can be replaced in a rebuilt AppDir.
 
 The application icon was supplied by the maintainer for use in this distribution and repository. The code license does not grant rights to the characters or emblems depicted in that image. Nintendo fonts, extracted game artwork, game libraries, game shaders, movies and game data are not included. Optional console fonts and the launcher background are obtained locally from the user's own files.
+
+
+Selective 0.2.5 changes originate from onerag90/FE3H Recomp: SHA-256 validation (36e5ccd931), Unicode name entry (a0e066253d, e653bd1aae), keyboard modifiers (066406d366), and the upstream MIT SHA-256 implementation. Linux clipboard threading and UTF-8-safe deletion are adaptations in this fork. No upstream menu resizing, dimming or upscaler changes are included.

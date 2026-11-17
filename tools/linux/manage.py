@@ -12,7 +12,7 @@ import subprocess
 import sys
 import time
 from install_core import Installation, InstallError, atomic_json, digest
-from game_files import validate_exefs, validate_romfs, validate_dlc, files_in, verify_copy
+from game_files import validate_exefs, validate_romfs, validate_dlc, files_in, verify_copy, romfs_hash_warnings
 from processes import stop_session
 
 HERE = Path(__file__).resolve().parent
@@ -217,6 +217,12 @@ def install(args, installation):
     if not args.no_dlc and dlc is None and not args.headless:
         if dialog('--yesno', 'Do you want to install your extracted DLC too?')[0] == 0:
             dlc = pick('Select the folder containing the FE3H DLC packs')
+    warnings = romfs_hash_warnings(romfs)
+    if warnings:
+        warning = 'Not a clean 1.2.0 copy:\n' + '\n'.join(warnings) + '\nThis is a warning only; installation may continue.'
+        print(warning, file=sys.stderr)
+        if not args.headless:
+            dialog('--sorry', warning)
     packs = validate_dlc(dlc)
     for original in [exefs, romfs, *packs.values()]:
         if root == original.resolve() or root.is_relative_to(original.resolve()):

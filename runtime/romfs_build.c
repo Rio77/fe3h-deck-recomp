@@ -3,6 +3,7 @@
 // entries. The image itself is never written: runtime/services/fs.c serves it from this layout and the files. Entries are found by hash (the game's RomFS code walks the tables itself), so the order inside them only
 // has to be consistent: directories and files are sorted by name, children before siblings' children.
 #include "romfs_build.h"
+#include "sha256.h"
 
 #include "platform.h"  // (Windows: POSIX mkdir)
 
@@ -122,9 +123,13 @@ static uint64_t align16(uint64_t x) { return (x + 15) & ~15ull; }
 static void put32(uint8_t *p, uint32_t v) { memcpy(p, &v, 4); }
 static void put64(uint8_t *p, uint64_t v) { memcpy(p, &v, 8); }
 
-bool romfs_check_clean(const char *dir, char *why, size_t why_size) {
-    static const struct { const char *rel; uint64_t size; } known[] = {
-        {"DATA0.bin", 997120ull}, {"DATA1.bin", 6936719456ull}, {"patch4/INFO0.bin", 348480ull},
+static bool romfs_check(const char *dir, char *why, size_t why_size, bool content) {
+    static const struct { const char *rel; uint64_t size; const char *sha256; } known[] = {
+        {"DATA0.bin", 997120ull, "f5f857a33e27c4bb04edb9bb68d2f877359bfd3d192d4af032dfaa18a3db3862"},
+        {"DATA1.bin", 6936719456ull, NULL},
+        {"patch4/INFO0.bin", 348480ull, "ba4990d33b446bce03450a324345cf0c35fb987efc8ed2a31a2aa14764c2ed31"},
+        {"patch4/INFO1.bin", 1137360ull, "c72fc9e8e0211aaf38c96bb48b1b94048cf5bf7551b7b5eee22fe8cf19c22aba"},
+        {"patch4/INFO2.bin", 16ull, "cd51c5b482395f8277d8c2c19e0203284bd9fcc44baab1ecd4b19f3eca544fc2"},
     };
     if (why_size) why[0] = 0;
     Dir *t = scan(dir, "", NULL, 0, NULL);
@@ -138,10 +143,13 @@ bool romfs_check_clean(const char *dir, char *why, size_t why_size) {
     }
     size_t dl = strlen(dir);
     for (size_t k = 0; clean && k < sizeof known / sizeof *known; k++) {
+        if (!content && k >= 3) continue;
         const File *f = NULL;
         for (int i = 0; i < l.nf && !f; i++)
             if (strlen(l.files[i]->path) > dl && !strcmp(l.files[i]->path + dl + 1, known[k].rel)) f = l.files[i];
-        if (!f || f->size != known[k].size) {
+        char hex[65];
+        if (!f || f->size != known[k].size ||
+            (content && known[k].sha256 && (!sha256_file_hex(f->path, hex) || strcmp(hex, known[k].sha256)))) {
             snprintf(why, why_size, "romfs/%s %s", known[k].rel, f ? "differs from a clean 1.2.0 copy" : "is missing");
             clean = false;
         }
@@ -149,6 +157,13 @@ bool romfs_check_clean(const char *dir, char *why, size_t why_size) {
     free(l.dirs), free(l.files);
     free_tree(t);
     return clean;
+}
+
+bool romfs_check_structure(const char *dir, char *why, size_t cap) {
+    return romfs_check(dir, why, cap, false);
+}
+bool romfs_check_clean(const char *dir, char *why, size_t cap) {
+    return romfs_check(dir, why, cap, true);
 }
 
 uint64_t romfs_dir_bytes(const char *dir) {

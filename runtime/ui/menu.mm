@@ -16,6 +16,8 @@
 #include "option_rows.h"
 #include "imgui_internal.h"  // (NavCursorVisible)
 #include "osk.h"
+#include "../text_utf8.h"
+#include "text_clipboard.h"
 #include "theme.h"
 #include "../hle/cheatvm.h"
 #ifdef __APPLE__
@@ -59,7 +61,7 @@ static std::atomic<bool> g_text_busy{false};  // a text field / the on-screen ke
 static std::atomic<bool> g_want_fullscreen_apply{false};
 
 struct QEvent {
-    enum { KEY, ANALOG, MOUSE_POS, MOUSE_BUTTON, WHEEL, TEXT } kind;
+    enum { KEY, ANALOG, MOUSE_POS, MOUSE_BUTTON, WHEEL, TEXT, FOCUS } kind;
     ImGuiKey key;
     bool down;
     float value, x, y;
@@ -163,6 +165,11 @@ static bool capturing() { return g_notice_active.load() || g_open.load() || g_kb
 extern "C" bool menu_input_captured(void) { return g_notice_active.load() || capturing(); }
 
 bool menu_handle_event(const SDL_Event *e) {
+    clipboard_service(e->type == SDL_EVENT_KEY_DOWN || e->type == SDL_EVENT_MOUSE_BUTTON_DOWN || e->type == SDL_EVENT_WINDOW_FOCUS_GAINED);
+    if (e->type == SDL_EVENT_WINDOW_FOCUS_LOST || e->type == SDL_EVENT_WINDOW_FOCUS_GAINED) {
+        QEvent q = {}; q.kind = QEvent::FOCUS; q.down = e->type == SDL_EVENT_WINDOW_FOCUS_GAINED; push(q);
+    }
+
     if (g_notice_active.load() &&
         ((e->type == SDL_EVENT_KEY_DOWN && !e->key.repeat &&
           (e->key.scancode == SDL_SCANCODE_RETURN || e->key.scancode == SDL_SCANCODE_ESCAPE)) ||
@@ -212,7 +219,17 @@ bool menu_handle_event(const SDL_Event *e) {
             return true;
         }
         ImGuiKey k = key_from_scancode(e->key.scancode);
-        if (k != ImGuiKey_None) { QEvent q = {}; q.kind = QEvent::KEY; q.key = k; q.down = down; push(q); }
+        if (k != ImGuiKey_None) {
+            // Modifier state first: ImGui (1.87+) takes Ctrl / Shift / Alt / Super only as ImGuiMod_* events, not from
+            // the LeftCtrl etc. keys, so without these Ctrl+V / C / X / A / Z did nothing in text fields
+            static const struct { ImGuiKey mod; SDL_Keymod sdl; } mods[] = {
+                {ImGuiMod_Ctrl, SDL_KMOD_CTRL}, {ImGuiMod_Shift, SDL_KMOD_SHIFT},
+                {ImGuiMod_Alt, SDL_KMOD_ALT}, {ImGuiMod_Super, SDL_KMOD_GUI}};
+            for (const auto &m : mods) {
+                QEvent q = {}; q.kind = QEvent::KEY; q.key = m.mod; q.down = (e->key.mod & m.sdl) != 0; push(q);
+            }
+            QEvent q = {}; q.kind = QEvent::KEY; q.key = k; q.down = down; push(q);
+        }
         return true;
     }
     case SDL_EVENT_TEXT_INPUT:
@@ -293,6 +310,7 @@ bool menu_handle_event(const SDL_Event *e) {
 }
 
 void menu_apply_window_requests(void *win) {
+    clipboard_service(false);
     SDL_Window *w = (SDL_Window *)win;
     g_pixel_density = SDL_GetWindowPixelDensity(w);
     static bool text_input;
@@ -358,6 +376,37 @@ static void style_init(void) {
 }
 
 
+// Korean game language only: merges a system font's Hangul into the font added just before (ImGui MergeMode), for the
+// name entry. ~11,000 glyphs, so not for other languages (atlas size, start time). FE3H_KOR_FONT: another font file.
+// The menu's fonts are built once, often before the language is switched to Korean (Quit to Start Screen + Play keeps
+// this context): menu_render rebuilds them with Hangul when the name entry opens in Korean (kor_fonts_wanted).
+static bool g_kor_tried;  // (merged, or no font found: not again)
+static bool kor_fonts_wanted(void) { return !g_kor_tried && !strcmp(settings_language(), "ko"); }
+static void merge_korean(ImGuiIO &io, float size) {
+    if (!kor_fonts_wanted()) return;
+    g_kor_tried = true;
+    const char *paths[] = {getenv("FE3H_KOR_FONT"), "C:/Windows/Fonts/malgun.ttf",
+                           "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+                           "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+                           "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+                           "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc"};
+    for (const char *p : paths) {
+        if (!p || !*p) continue;
+        if (FILE *f = fopen(p, "rb")) fclose(f);  // (a missing file is an assertion in ImGui)
+        else continue;
+        ImFontConfig k;
+        k.MergeMode = true;
+        k.OversampleH = 1;  // (keeps the atlas small)
+        k.PixelSnapH = true;
+        io.Fonts->AddFontFromFileTTF(p, size, &k, io.Fonts->GetGlyphRangesKorean());
+        LOG("[menu] Korean name entry: Hangul from %s\n", p);
+        return;
+    }
+    LOG("[menu] Korean name entry: no Hangul font found (FE3H_KOR_FONT=<font file> sets one)\n");
+}
+
+static void load_fonts(ImGuiIO &io);
+
 #ifdef __APPLE__
 static void init(id<MTLDevice> dev) {
 #else
@@ -370,6 +419,21 @@ static void init(void) {
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard | ImGuiConfigFlags_NavEnableGamepad;
     io.BackendFlags |= ImGuiBackendFlags_HasGamepad;
     io.IniFilename = NULL;
+    ImGui::GetPlatformIO().Platform_GetClipboardTextFn = clipboard_get;
+    ImGui::GetPlatformIO().Platform_SetClipboardTextFn = clipboard_set;
+    load_fonts(io);
+    style_init();
+#ifdef __APPLE__
+    ImGui_ImplMetal_Init(dev);
+#else
+    vk_imgui_backend_init();
+#endif
+    g_inited = true;
+}
+
+// The menu's fonts (init, and again with Hangul for the Korean name entry: menu_render)
+static void load_fonts(ImGuiIO &io) {
+    g_font = g_font_big = g_menu_font = g_menu_font_big = NULL;
     ImFontConfig cfg;
     cfg.OversampleH = 2;
     const char *paths[] = {"/System/Library/Fonts/Avenir Next.ttc", "/System/Library/Fonts/Helvetica.ttc",
@@ -379,8 +443,13 @@ static void init(void) {
         if (FILE *f = fopen(p, "rb")) fclose(f);  // a missing file is an assertion in ImGui, not a NULL return
         else continue;
         if (!g_font) g_font = io.Fonts->AddFontFromFileTTF(p, 34, &cfg);
-        if (g_font && !g_font_big) { ImFontConfig b = cfg; b.FontNo = 0; g_font_big = io.Fonts->AddFontFromFileTTF(p, 56, &b); }
+        if (g_font && !g_font_big) {
+            ImFontConfig b = cfg; b.FontNo = 0; g_font_big = io.Fonts->AddFontFromFileTTF(p, 56, &b);
+        }
     }
+    if (!g_font) g_font = io.Fonts->AddFontDefault();
+    if (!g_font_big) g_font_big = g_font;
+    merge_korean(io, 56);  // also try after the default-font fallback, once per process
     // the menu window itself: Baloo 2 SemiBold, as on the start screen (shipped, OFL), at its Settings window's sizes; the
     // FPS counter, overlays and on-screen keyboard keep the fonts above
     char baloo[1024];
@@ -392,13 +461,6 @@ static void init(void) {
     if (!g_font) g_font = io.Fonts->AddFontDefault();
     if (!g_font_big) g_font_big = g_font;
     if (!g_menu_font || !g_menu_font_big) g_menu_font = g_font, g_menu_font_big = g_font_big;
-    style_init();
-#ifdef __APPLE__
-    ImGui_ImplMetal_Init(dev);
-#else
-    vk_imgui_backend_init();
-#endif
-    g_inited = true;
 }
 
 static void drain_events(ImGuiIO &io) {
@@ -414,6 +476,7 @@ static void drain_events(ImGuiIO &io) {
         case QEvent::MOUSE_BUTTON: io.AddMouseButtonEvent(q.button, q.down); break;
         case QEvent::WHEEL: io.AddMouseWheelEvent(q.x, q.y); break;
         case QEvent::TEXT: io.AddInputCharactersUTF8(q.text); break;
+        case QEvent::FOCUS: io.AddFocusEvent(q.down); break;
         }
     }
 }
@@ -712,8 +775,8 @@ static void keyboard_draw(ImGuiIO &io, float scale) {
                          ImGuiInputTextFlags_CallbackCharFilter,
                          [](ImGuiInputTextCallbackData *d) -> int { return d->EventChar < 0x20 ? 1 : 0; });
         ImGui::PopFont();
-        if ((int)strlen(g_kbd_text) > g_kbd_max) g_kbd_text[g_kbd_max] = 0;
-        ImGui::TextDisabled("Enter  confirm      Esc  cancel      (%d / %d)", (int)strlen(g_kbd_text), g_kbd_max);
+        text_utf8_truncate(g_kbd_text, g_kbd_max);
+        ImGui::TextDisabled("Enter  confirm      Esc  cancel      (%d / %d)", text_utf8_count(g_kbd_text), g_kbd_max);
     } else {  // controller: on-screen keyboard (osk.mm, shared with our menus' text fields)
         int r = osk_keys(g_kbd_text, sizeof g_kbd_text, g_kbd_max, appearing, scale, g_font_big);
         if (r) g_kbd = r > 0 ? 2 : 3;  // (Start / + confirms in menu_handle_event too)
@@ -728,6 +791,7 @@ extern "C" int menu_keyboard_run(const char *initial, int max_len, char *out, in
     extern void backend_represent(void);
     snprintf(g_kbd_text, sizeof g_kbd_text, "%s", initial ? initial : "");
     g_kbd_max = max_len > 0 && max_len < (int)sizeof g_kbd_text / 4 ? max_len : 8;
+    text_utf8_truncate(g_kbd_text, g_kbd_max);
     input_reset();
     g_kbd = 1;
     // (test) LARECOMP_KBD_AUTO=<text>: answer at once
@@ -931,6 +995,13 @@ void menu_render(void *cmd, uint32_t target_w, uint32_t target_h) {
         ImGui::GetStyle().ScaleAllSizes(scale);
         style_scale = scale;
     }
+#ifndef __APPLE__
+    if (kbd && kor_fonts_wanted()) {  // name entry in Korean, fonts built without Hangul: rebuild them with it
+        io.Fonts->Clear();
+        load_fonts(io);
+        ImGui_ImplVulkan_CreateFontsTexture();  // (waits for the GPU, replaces the old font texture)
+    }
+#endif
 #ifdef __APPLE__
     ImGui_ImplMetal_NewFrame(rp);
 #else

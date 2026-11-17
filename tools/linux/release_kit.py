@@ -38,7 +38,7 @@ def main():
             with archive.extractfile('dependencies/' + item['file']) as stream:
                 if hashlib.file_digest(stream, 'sha256').hexdigest() != item['sha256']:
                     raise ValueError('Corresponding-source checksum mismatch')
-    kit = args.output.resolve() / 'FE3H-Deck-Recomp-0.2.4'
+    kit = args.output.resolve() / 'FE3H-Deck-Recomp-0.2.5'
     kit.mkdir(parents=True, exist_ok=False)
     for name in ('manage.py', 'install_core.py', 'game_files.py', 'processes.py', 'Install.desktop'):
         shutil.copy2(source / name, kit / name)
@@ -58,14 +58,14 @@ def main():
     source_output = args.output.resolve() / corresponding.name
     if corresponding != source_output:
         shutil.copy2(corresponding, source_output)
-    (kit / 'release.json').write_text(json.dumps({'appimage': app.name, 'sha256': sha, 'version': '0.2.4'}, indent=2) + '\n')
+    (kit / 'release.json').write_text(json.dumps({'appimage': app.name, 'sha256': sha, 'version': '0.2.5'}, indent=2) + '\n')
     hashes = []
     for f in sorted(kit.rglob('*')):
         if f.is_file():
             with f.open('rb') as stream:
                 hashes.append(hashlib.file_digest(stream, 'sha256').hexdigest() + '  ' + f.relative_to(kit).as_posix())
     (kit / 'SHA256SUMS').write_text('\n'.join(hashes) + '\n')
-    target = args.output.resolve() / 'FE3H-Deck-Recomp-0.2.4-steamdeck.tar.gz'
+    target = args.output.resolve() / 'FE3H-Deck-Recomp-0.2.5-steamdeck.tar.gz'
     with tarfile.open(target, 'w:gz') as archive:
         archive.add(kit, arcname=kit.name)
     print(target)

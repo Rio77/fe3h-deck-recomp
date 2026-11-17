@@ -15,11 +15,23 @@ clang -std=gnu11 -O1 -ffunction-sections -fdata-sections -Iruntime -Wl,--gc-sect
     tools/test_settings_opt5.c runtime/settings.c -o "$TEST_TMP/settings"
 "$TEST_TMP/settings"
 make test-mods
+clang -std=gnu11 -O1 -Iruntime tools/test_romfs_hashes.c runtime/romfs_build.c runtime/sha256.c -o "$TEST_TMP/romfs_hashes"
+python3 - "$TEST_TMP/hash-fixture" <<'PYTEST'
+from pathlib import Path
+import sys
+p=Path(sys.argv[1]);(p/'patch4').mkdir(parents=True)
+for name,size in {'DATA0.bin':997120,'DATA1.bin':6936719456,'patch4/INFO0.bin':348480,'patch4/INFO1.bin':1137360,'patch4/INFO2.bin':16}.items():
+    with (p/name).open('wb') as f:f.truncate(size)
+for i in range(3696-5):(p/str(i)).touch()
+PYTEST
+"$TEST_TMP/romfs_hashes" "$TEST_TMP/hash-fixture" warning
+clang -Iruntime tools/test_text_utf8.c -o "$TEST_TMP/text_utf8"
+"$TEST_TMP/text_utf8"
 clang -D_GNU_SOURCE -O1 -ffunction-sections -fdata-sections -Iruntime \
     -Dromfs_dir_bytes=old_romfs_dir_bytes -Dromfs_copy_tree=old_romfs_copy_tree \
     -c tools/romfs_old.c -o "$TEST_TMP/romfs_old.o"
 clang -D_GNU_SOURCE -O1 -ffunction-sections -fdata-sections -Iruntime -Wl,--gc-sections \
-    tools/test_romfs_opt4.c runtime/romfs_build.c runtime/mods.c "$TEST_TMP/romfs_old.o" -pthread -o "$TEST_TMP/romfs"
+    tools/test_romfs_opt4.c runtime/romfs_build.c runtime/sha256.c runtime/mods.c "$TEST_TMP/romfs_old.o" -pthread -o "$TEST_TMP/romfs"
 python3 - "$TEST_TMP/romfs-fixture" <<'PY'
 from pathlib import Path
 import sys
@@ -55,4 +67,9 @@ done
 clang -std=gnu11 -O1 -ffunction-sections -fdata-sections -I"$DEPS/include" -Iruntime \
     tools/test_shader_compiler_lifetime.c -Wl,--gc-sections -L"$DEPS/lib" -lshaderc_shared -pthread -o "$TEST_TMP/shader_lifetime"
 "$TEST_TMP/shader_lifetime"
+clang++ -std=c++17 -pthread -Iruntime -Ithird_party/imgui -I"$DEPS/include" \
+    tools/test_text_clipboard.cpp third_party/imgui/imgui.cpp third_party/imgui/imgui_draw.cpp \
+    third_party/imgui/imgui_widgets.cpp third_party/imgui/imgui_tables.cpp \
+    -L"$DEPS/lib" -lSDL3 -o "$TEST_TMP/text_clipboard"
+SDL_VIDEODRIVER=dummy timeout 20 "$TEST_TMP/text_clipboard"
 echo 'PASS synthetic Linux checks'

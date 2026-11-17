@@ -133,3 +133,22 @@ def validate_dlc(folder):
             raise GameFilesError(f'DLC {p.name} contains packed data instead of extracted files.')
         packs[p.name.upper()] = p
     return packs
+
+
+ROMFS_HASHES = {'DATA0.bin': 'f5f857a33e27c4bb04edb9bb68d2f877359bfd3d192d4af032dfaa18a3db3862', 'patch4/INFO0.bin': 'ba4990d33b446bce03450a324345cf0c35fb987efc8ed2a31a2aa14764c2ed31', 'patch4/INFO1.bin': 'c72fc9e8e0211aaf38c96bb48b1b94048cf5bf7551b7b5eee22fe8cf19c22aba', 'patch4/INFO2.bin': 'cd51c5b482395f8277d8c2c19e0203284bd9fcc44baab1ecd4b19f3eca544fc2'}
+
+def romfs_hash_warnings(folder):
+    """Return content warnings; never alter or reject the selected folder."""
+    result = []
+    for name, expected in ROMFS_HASHES.items():
+        try:
+            with (Path(folder) / name).open("rb") as stream:
+                hasher = hashlib.sha256()
+                for block in iter(lambda: stream.read(1024 * 1024), b''):
+                    hasher.update(block)
+                actual = hasher.hexdigest()
+            if actual != expected:
+                result.append(f"romfs/{name} differs from a clean 1.2.0 copy. Extract your original dump again if the game hangs.")
+        except OSError as error:
+            result.append(f"romfs/{name}: cannot verify content: {error}")
+    return result

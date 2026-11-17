@@ -1,3 +1,4 @@
+#include "../text_utf8.h"
 // On-screen keyboard (see osk.h). A controller has no keys to type with, and ImGui only starts text entry on a
 // gamepad's Y (A on a field did nothing): A on any of our text fields opens this keyboard instead.
 //
@@ -97,8 +98,8 @@ int osk_keys(char *text, size_t cap, int max_chars, bool appearing, float scale,
     ImGui::SetKeyOwner(ImGuiKey_GamepadFaceRight, own);
     if (max_chars <= 0 || max_chars > (int)cap - 1) max_chars = (int)cap - 1;
     int len = (int)strlen(text), r = 0;
-    auto add = [&](char ch) { if (len < max_chars) text[len++] = ch, text[len] = 0; };
-    auto del = [&]() { if (len > 0) text[--len] = 0; };
+    auto add = [&](char ch) { if (text_utf8_count(text) < max_chars && (size_t)len + 1 < cap) text[len++] = ch, text[len] = 0; };
+    auto del = [&]() { text_utf8_pop(text); len = (int)strlen(text); };
 
     // typed on a keyboard while it's up: straight into the text
     for (ImWchar c : io.InputQueueCharacters) if (c >= 0x20 && c < 0x7f) add((char)c);
@@ -136,7 +137,7 @@ int osk_keys(char *text, size_t cap, int max_chars, bool appearing, float scale,
     if (ImGui::Button("Cancel", ImVec2(k * 2, k))) r = -1;
     ImGui::SameLine();
     if (ImGui::Button("OK", ImVec2(k * 2, k))) r = 1;
-    ImGui::TextDisabled("A  type      B  delete      Start / +  OK      (%d / %d)", len, max_chars);
+    ImGui::TextDisabled("A  type      B  delete      Start / +  OK      (%d / %d)", text_utf8_count(text), max_chars);
     return r;
 }
 

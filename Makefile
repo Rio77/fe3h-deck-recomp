@@ -310,5 +310,5 @@ build/test_shaders: tools/test_shaders.m runtime/nvn/maxwell/translate.c runtime
 .PHONY: test-mods
 test-mods:
 	@mkdir -p build
-	$(CC) -std=gnu11 -O1 -Wall -Wextra -Wno-format-truncation -D_FILE_OFFSET_BITS=64 -Iruntime -o build/test_mods tools/test_mods.c runtime/mods.c runtime/romfs_build.c
+	$(CC) -std=gnu11 -O1 -Wall -Wextra -Wno-format-truncation -D_FILE_OFFSET_BITS=64 -Iruntime -o build/test_mods tools/test_mods.c runtime/mods.c runtime/romfs_build.c runtime/sha256.c
 	build/test_mods

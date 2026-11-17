@@ -16,7 +16,7 @@ El recompilador estático traduce el código AArch64 original a C y lo compila l
 
 ## Estado
 
-Versión actual: **0.2.4** (motor opt5 validado). Probada en Steam Deck LCD en modo dock, conservando resoluciones internas ajustables, audio y cinemáticas. El destino publicado es Linux x86-64; otros dispositivos no recibieron la misma validación. Este repositorio no distribuye ni mantiene una compilación Windows.
+Versión actual: **0.2.5** (motor opt5 validado). Probada en Steam Deck LCD en modo dock, conservando resoluciones internas ajustables, audio y cinemáticas. El destino publicado es Linux x86-64; otros dispositivos no recibieron la misma validación. Este repositorio no distribuye ni mantiene una compilación Windows.
 
 Opt5 reduce las esperas activas de CPU, añade precalentamiento de pipelines según el perfil y corrige la propiedad de recursos durante reinicios internos. También integra correcciones seleccionadas de GPU, texturas, mando, audio, cinemáticas, guardados y mods. La iluminación estructurada, precisión half nativa, memoria local dispersa y modo dock ya estaban en opt4.
 
@@ -34,7 +34,7 @@ En `match`, las comparaciones del monasterio mejoraron el p99 del tiempo de foto
 
 La release ofrece un paquete de instalación para Steam Deck que ya contiene la AppImage. Descargá ese instalador para jugar. El código del proyecto en ZIP/TAR.GZ y las fuentes correspondientes completas en TAR.GZ están disponibles por separado para compilar y cumplir las licencias; no son pasos adicionales de instalación.
 
-1. Descargá `FE3H-Deck-Recomp-0.2.4-steamdeck.tar.gz` desde [Releases](https://github.com/Rio77/fe3h-deck-recomp/releases/latest). Extraelo en una carpeta escribible desde el modo escritorio.
+1. Descargá `FE3H-Deck-Recomp-0.2.5-steamdeck.tar.gz` desde [Releases](https://github.com/Rio77/fe3h-deck-recomp/releases/latest). Extraelo en una carpeta escribible desde el modo escritorio.
 2. Conservá todos sus archivos juntos y abrí **Install.desktop**. Permití la ejecución si KDE lo solicita. Seleccioná tus `exefs`, `romfs` y, opcionalmente, la carpeta de DLC.
 3. Esperá a que termine la copia y compilación local. La importación completa probada en la Deck tardó unos 43 minutos; puede variar según hardware, archivos y caché. No es el tiempo habitual de arranque del juego.
 4. Abrí **FE3H Deck Recomp** desde el escritorio. Para usar el modo Juego, agregá manualmente el **FE3H.sh** instalado a Steam como juego externo.
@@ -94,3 +94,10 @@ El instalador permite elegir el destino y recomienda `~/Games/FE3H-Deck-Recomp`.
 ### 0.2.4: acceso Settings
 
 Abrí **Settings.desktop** en la carpeta instalada o **Settings** en el escritorio para gestionar los mods con la ruta de datos correcta. Cerrá primero el juego. Los cambios se aplican al siguiente arranque. Esta versión actualiza el empaquetado y los accesos de Linux; conserva el motor opt5 validado y no incorpora el motor oficial 0.2.4.
+
+
+### 0.2.5: validación y escritura
+
+Se incorporan advertencias SHA-256 para cuatro archivos pequeños del juego base, nombres Unicode con límites por caracteres, borrado UTF-8 seguro y Ctrl+A/C/X/V/Z. Las discrepancias de contenido permiten continuar; los errores de estructura anteriores siguen siendo errores. La comprobación se realiza antes de superponer mods y no verifica todos los datos del juego ni los DLC.
+
+La visualización de cada alfabeto depende de las fuentes instaladas; las fuentes coreanas solo se cargan cuando hacen falta. El teclado de mando conserva su distribución latina. Esta versión mantiene opt5 con estas correcciones selectivas: no incorpora actualizador, redimensionado del menú, oscurecimiento ni reescaladores temporales.

@@ -92,7 +92,7 @@ static void save_png(id<MTLTexture> tex, const char *path) {
 // it): beta_<n> until 1.0, then v<major>.<minor>.<patch>.
 #define LARECOMP_VERSION "beta_4"
 // This fork's own release version (the Makefile's release file names, the start screen's corner)
-#define FE3H_VERSION "0.2.3-linux-opt5"
+#define FE3H_VERSION "0.2.5"
 
 // ------------------------------------------------------------------ update check
 // The start screen asks GitHub for the project's releases once per launch (a background curl, which macOS and
@@ -430,9 +430,12 @@ static void *extract_thread(void *) {
     if (count_files(romfs, ROMFS_MIN_FILES) < ROMFS_MIN_FILES) { set_failure(FAIL_UPDATE_ONLY); goto done; }
     {
         char why[256];
-        if (!romfs_check_clean(romfs.c_str(), why, sizeof why)) {
+        if (!romfs_check_structure(romfs.c_str(), why, sizeof why)) {
             set_job("Game files are not a clean FE3H 1.2.0 copy", true, why);
             goto done;
+        }
+        if (!romfs_check_clean(romfs.c_str(), why, sizeof why)) {
+            fprintf(stderr, "[setup] WARNING: %s; content validation is advisory, continuing installation.\n", why);
         }
     }
     {

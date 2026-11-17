@@ -51,3 +51,6 @@ bool romfs_copy_tree(const char *src, const char *dst, void (*progress)(uint64_t
 #ifdef __cplusplus
 }
 #endif
+
+// Existing importer structural checks; content mismatches are warnings separately.
+bool romfs_check_structure(const char *dir, char *why, size_t why_size);
