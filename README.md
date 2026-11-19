@@ -1,6 +1,7 @@
 <p align="center">
   <img src="docs/icon/icon_1024.png" alt="Logo" width="300">
 </p>
+
 # FE3H Deck Recomp
 
 [Español](README.es.md) · [Installation and recovery](docs/linux.md) · [Validation](docs/validation.md)
