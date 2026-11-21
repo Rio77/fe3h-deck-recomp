@@ -92,7 +92,7 @@ static void save_png(id<MTLTexture> tex, const char *path) {
 // it): beta_<n> until 1.0, then v<major>.<minor>.<patch>.
 #define LARECOMP_VERSION "beta_4"
 // This fork's own release version (the Makefile's release file names, the start screen's corner)
-#define FE3H_VERSION "0.2.5"
+#define FE3H_VERSION "0.2.6"
 
 // ------------------------------------------------------------------ update check
 // The start screen asks GitHub for the project's releases once per launch (a background curl, which macOS and
@@ -409,20 +409,21 @@ static void *extract_thread(void *) {
     g_done = 0, g_total = 0, g_phase_base = 0, g_build_frac = -1, g_copy_skipped = false;
     std::string exefs, romfs;
     bool unusable = false;  // (game packages rather than its files)
+    if (src.empty() && check_copied_files(g_root).empty()) {  // copied already (an update needs new game code)
+        g_copy_skipped = true;
+        if (!build_game_code()) goto done;
+        goto check;
+    }
 #ifdef __linux__
     // The Linux installer imports into an isolated data root and commits only
-    // after compilation and verification. Keep an existing build usable here.
+    // after compilation and verification. Keep an existing build usable here
+    // when setting up from new game files.
     if (file_exists(g_root + "/" GAMELIB_NAME)) {
         set_job("Existing installation preserved", true,
                 "Use the Linux installer to reinstall or update. Your saves and settings are kept.");
         goto done;
     }
 #endif
-    if (src.empty() && check_copied_files(g_root).empty()) {  // copied already (an update needs new game code)
-        g_copy_skipped = true;
-        if (!build_game_code()) goto done;
-        goto check;
-    }
     set_job("Looking for the game files...");
     find_game(src, 0, exefs, romfs, unusable);
     if (exefs.empty() || romfs.empty()) { set_failure(unusable ? FAIL_UNUSABLE : FAIL_NOT_FOUND); goto done; }

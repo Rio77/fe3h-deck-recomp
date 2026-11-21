@@ -9,7 +9,7 @@
 // (tools/cheats.py), and the generated code asks cheat_word() which one to run. The VM's code writes land in that
 // table instead of memory, owned by the cheat that made them, and are undone when that cheat is switched off. The
 // variants are compiled from the cheats.txt `make gen` saw (generated/main/cheat_variants.txt): one added since needs
-// `make gen-main` and `make`, and the menu says so.
+// `make gen-main` and `make` (source checkout) or `manage.py rebuild` (Linux AppImage), and the menu says so.
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,6 +19,7 @@
 #include "../hle.h"
 #include "cheatvm.h"
 #include "../gamebuild.h"
+#include "../paths.h"
 
 #define MAX_CHEATS 128
 #define MAX_WORDS 1024
@@ -116,9 +117,21 @@ static void load(void) {
         while (g_nvar < MAX_CODE && fscanf(f, "%llx %x", &off, &w) == 2)
             g_var[g_nvar].addr = 0x7000000000ull + off, g_var[g_nvar++].word = w;
         fclose(f);
+        LOG("[cheats] variants from: %s\n", vf[0] ? vf : VARIANTS_FILE);
+    } else {
+        LOG("[cheats] no variants file found (run Rebuild game code or `manage.py rebuild` to compile instruction patches)\n");
     }
-    f = fopen(CHEATS_FILE, "r");
-    if (!f) { LOG("[cheats] no %s: no cheats\n", CHEATS_FILE); return; }
+    // Use an absolute path for cheats.txt: rt_data_root() is set by rt_paths_init() (which also chdirs there),
+    // so this is equivalent to the plain relative fopen but is robust against any future chdir elsewhere.
+    char cheats_path[1200];
+    snprintf(cheats_path, sizeof cheats_path, "%s/%s", rt_data_root(), CHEATS_FILE);
+    f = fopen(cheats_path, "r");
+    if (!f) {
+        // Fallback: try relative path in case CWD is the data root (source checkout / test harness)
+        f = fopen(CHEATS_FILE, "r");
+    }
+    if (!f) { LOG("[cheats] no cheats.txt at %s: no cheats\n", cheats_path); return; }
+    LOG("[cheats] loading from: %s\n", cheats_path);
     char line[1024];
     Cheat *c = NULL;
     while (fgets(line, sizeof line, f)) {
@@ -169,8 +182,9 @@ static void load(void) {
         for (int j = 0; j < i && ch->on && !ch->master; j++)  // (two that exclude each other were on: the first stays)
             if (g_cheats[j].on && conflict(&g_cheats[j], ch)) ch->on = false;
         LOG("[cheats] %s%s%s%s\n", ch->name, ch->on ? " (on)" : "", ch->bad ? " (unsupported opcode: not run)" : "",
-            !ch->needs_gen ? "" : gamebuild_available() ? " (its code patch isn't compiled in: Settings > Game Files > Rebuild game code)"
-                                                        : " (its code patch isn't compiled in: make gen-main, then make)");
+            !ch->needs_gen ? "" : gamebuild_available()
+                ? " (its code patch isn't compiled in: Settings > Game Files > Rebuild game code, or `manage.py rebuild`)"
+                : " (its code patch isn't compiled in: make gen-main, then make)");
     }
     for (int i = 0; i < g_ncheats; i++)
         for (int j = 0; j < g_ncheats; j++)
@@ -178,7 +192,13 @@ static void load(void) {
                 size_t l = strlen(g_cheats[i].excludes);
                 snprintf(g_cheats[i].excludes + l, sizeof g_cheats[i].excludes - l, "%s%s", l ? ", " : "", g_cheats[j].name);
             }
-    LOG("[cheats] %d from %s, %d instruction variants compiled in\n", g_ncheats, CHEATS_FILE, g_nvar);
+    // Count cheats that need a rebuild for a clear summary in the log
+    int need_gen = 0;
+    for (int i = 0; i < g_ncheats; i++) if (g_cheats[i].needs_gen) need_gen++;
+    LOG("[cheats] %d from cheats.txt, %d instruction variant(s) compiled in%s\n", g_ncheats, g_nvar,
+        need_gen > 0 && g_nvar == 0
+            ? " -- run Rebuild game code (start screen: Settings > Game Files) or `manage.py rebuild` to compile instruction patches"
+            : need_gen > 0 ? " (some patches still need a rebuild after editing cheats.txt)" : "");
 }
 
 // ------------------------------------------------------------------ the generated code's side

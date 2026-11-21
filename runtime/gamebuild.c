@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "gamelib.h"
 #include "paths.h"
@@ -331,10 +332,13 @@ bool gamebuild_run(const char *game_dir, const GameBuildOpts *o, char *why, size
         char cheats[1100];
         snprintf(cheats, sizeof cheats, "%s" SEP "cheats.txt", rt_data_root());
 #ifdef _WIN32
-        _putenv_s("LARECOMP_CHEATS", cheats);
+        if (access(cheats, R_OK) == 0) _putenv_s("LARECOMP_CHEATS", cheats);
+        else _putenv_s("LARECOMP_CHEATS", "");  // clear any stale value from a previous session
 #else
-        setenv("LARECOMP_CHEATS", cheats, 1);
+        if (access(cheats, R_OK) == 0) setenv("LARECOMP_CHEATS", cheats, 1);
+        else unsetenv("LARECOMP_CHEATS");  // clear any stale value from a previous session
 #endif
+        LOG("[gamebuild] cheats: %s\n", access(cheats, R_OK) == 0 ? cheats : "(none)");
     }
     for (int i = 0; i < NGEN && ok; i++) {
         Gen *g = &gens[i];

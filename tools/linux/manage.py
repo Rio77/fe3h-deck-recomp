@@ -36,6 +36,10 @@ def pick(label):
 def choose_destination(args):
     if args.root is not None:
         return args.root.expanduser()
+    if (HERE / 'current.json').is_file():
+        return HERE
+    if (Path.cwd() / 'current.json').is_file():
+        return Path.cwd().resolve()
     if args.command != 'install' or args.headless:
         return DEFAULT_ROOT
     recommended = Path.home() / 'Games/FE3H-Deck-Recomp'
@@ -176,6 +180,85 @@ def desktop_files(root, make_desktop=True):
     settings_dest.chmod(0o755)
 
 
+def wait_for_rebuild(proc, root, output, *, timeout=7200):
+    """Wait for a --build-game invocation triggered by the 'rebuild' command."""
+    started = time.monotonic()
+    last_log_check = started
+    while proc.poll() is None:
+        if time.monotonic() - started > timeout:
+            stop_session(proc)
+            raise InstallError('Rebuild exceeded its time limit.')
+        time.sleep(1)
+        if time.monotonic() - last_log_check >= 15:
+            last_log_check = time.monotonic()
+            elapsed = int(last_log_check - started)
+            print(f'[rebuild] compiling in progress... ({elapsed}s elapsed)', flush=True)
+    with output.open('a', encoding='utf-8') as log:
+        log.write(f'\n[installer] rebuild exit={proc.returncode}\n')
+    if proc.returncode != 0:
+        raise InstallError(f'Rebuild did not finish (exit {proc.returncode}). See {output}')
+
+
+def rebuild(args, installation):
+    """Rebuild the game code library with the cheats.txt now in the data folder.
+
+    This is equivalent to pressing 'Rebuild game code' in the start-screen
+    Settings > Game Files menu, but runs from the terminal so it can be
+    scripted and so the user does not have to navigate the UI.
+
+    Protections preserved
+    ---------------------
+    * The game must be closed before running (assert_game_closed).
+    * The new .so is built into a temporary .gamebuild/ folder and only
+      renamed into place after a successful link (gamebuild.c).
+    * If the build fails, gamebuild.c leaves the existing fe3hgame.so
+      untouched (it renames the .so away only after the new tmp is ready
+      and the rename succeeds).
+    * cheats.txt is never modified; a missing cheats.txt is fine — the
+      rebuild then produces an empty cheat_variants list, same as before.
+    """
+    root = installation.root
+    assert_game_closed(root)
+    app = app_for(root)
+    # Pass LARECOMP_DATA_ROOT so rt_data_root() finds root (and therefore
+    # root/cheats.txt) even when the AppImage is not launched via manage.py.
+    env = environment(root)
+    # Explicitly set LARECOMP_CHEATS so gamebuild.c's setenv() call in the
+    # child matches what the user has in their data folder.  gamebuild.c
+    # already does this internally, but exporting it here makes it visible
+    # to any wrapper or test harness that inspects the environment.
+    cheats_path = root / 'cheats.txt'
+    if cheats_path.is_file():
+        env['LARECOMP_CHEATS'] = str(cheats_path)
+        print(f'[rebuild] cheats.txt found: {cheats_path}')
+    else:
+        env.pop('LARECOMP_CHEATS', None)
+        print('[rebuild] no cheats.txt found; rebuilding without instruction patches')
+    output = root / 'rebuild.log'
+    print(f'[rebuild] starting; log: {output}')
+    proc = None
+    try:
+        with output.open('w') as log:
+            proc = subprocess.Popen(
+                [str(app), '--build-game'],
+                cwd=root, env=env,
+                stdout=log, stderr=subprocess.STDOUT,
+                start_new_session=True,
+            )
+            wait_for_rebuild(proc, root, output)
+        cheats_file = root / 'extracted' / 'fe3hgame.so.cheats'
+        variants = 0
+        if cheats_file.is_file() and cheats_file.stat().st_size > 0:
+            variants = sum(1 for _ in cheats_file.open())
+        print(f'[rebuild] done — {variants} instruction variant(s) compiled in')
+        if variants == 0 and cheats_path.is_file():
+            print('[rebuild] note: 0 variants means cheats.txt has no instruction-patching cheats (opcode 04), only memory cheats — that is normal')
+        print('[rebuild] restart the game to pick up the new library')
+    finally:
+        if proc is not None:
+            stop_session(proc)
+
+
 def wait_for_preparation(proc, data, headless, output, *, timeout=7200, settle=3):
     """Close a completed graphical import without treating our SIGINT as a build failure."""
     started = time.monotonic()
@@ -282,7 +365,7 @@ def install(args, installation):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['install', 'launch', 'settings', 'recover', 'status'], nargs='?', default='install')
+    parser.add_argument('command', choices=['install', 'launch', 'settings', 'rebuild', 'recover', 'status'], nargs='?', default='install')
     parser.add_argument('--root', type=Path, default=None)
     parser.add_argument('--exefs', type=Path)
     parser.add_argument('--romfs', type=Path)
@@ -317,6 +400,8 @@ def main():
                     return proc.wait()
                 finally:
                     stop_session(proc)
+            elif args.command == 'rebuild':
+                rebuild(args, installation)
             elif args.command == 'recover':
                 print('Recovery:', result)
             else:
