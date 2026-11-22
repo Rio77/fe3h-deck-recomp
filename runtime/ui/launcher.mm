@@ -92,7 +92,7 @@ static void save_png(id<MTLTexture> tex, const char *path) {
 // it): beta_<n> until 1.0, then v<major>.<minor>.<patch>.
 #define LARECOMP_VERSION "beta_4"
 // This fork's own release version (the Makefile's release file names, the start screen's corner)
-#define FE3H_VERSION "0.2.6"
+#define FE3H_VERSION "0.2.7"
 
 // ------------------------------------------------------------------ update check
 // The start screen asks GitHub for the project's releases once per launch (a background curl, which macOS and

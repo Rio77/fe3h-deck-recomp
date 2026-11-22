@@ -243,7 +243,7 @@ static bool tex_scalable(const NvnTexture *t) {
 bool renderer_texture_first_write(NvnTexture *t) {
     TexBackend *b = t ? (TexBackend *)t->backend : NULL;
     uint64_t total_frames = renderer_present_count();
-    if (!b || !b->presented || (b->sx == b->sy) || b->touched_frame == total_frames + 1) return false;
+    if (!b || !b->presented || (b->req_sx == b->req_sy) || b->touched_frame == total_frames + 1) return false;
     b->touched_frame = total_frames + 1;
     return true;
 }
@@ -327,13 +327,26 @@ void vk_collect_dead(void) {
 
 static void create_image(NvnTexture *t, TexBackend *b) {
     VkFmt mf = fmt_of(t->format);
-    b->sx = b->scalable ? g_rs_x : 1;
-    b->sy = b->scalable ? g_rs_y : 1;
+    b->req_sx = b->sx = b->scalable ? g_rs_x : 1;
+    b->req_sy = b->sy = b->scalable ? g_rs_y : 1;
     uint32_t tw = t->width ? t->width : 1, th = t->height ? t->height : 1;
     if (b->scalable) {
+        uint32_t gw = tw, gh = th;
         tw = (uint32_t)lroundf(tw * b->sx); th = (uint32_t)lroundf(th * b->sy);
         if (tw < 1) tw = 1;
         if (th < 1) th = 1;
+        // the scale actually allocated (e.g. 1280 x 0.75 or Dynamic -> allocated / guest), so a draw's viewport
+        // fills the whole image; with the requested scale the last column / row (a fraction short) stayed empty.
+        // LARECOMP_EXACT_SCALE=0: the requested scale, as before.
+        static int exact = -1;
+        if (exact < 0) {
+            exact = !getenv("LARECOMP_EXACT_SCALE") || atoi(getenv("LARECOMP_EXACT_SCALE")) != 0;
+            if (!exact) LOG("[vk] scaled images use the requested scale (LARECOMP_EXACT_SCALE=0)\n");
+        }
+        if (exact) {
+            b->sx = (float)tw / (float)gw;
+            b->sy = (float)th / (float)gh;
+        }
     }
     if (getenv("LARECOMP_LOG_TARGET_SIZE") && t->width >= 1280 && t->height >= 720)
         LOG("[target-size] guest %ux%u -> allocated %ux%u fmt %#x flags %#x scalable %d\n",
@@ -536,7 +549,7 @@ static void live_remove(TexBackend *b) {
 static TexBackend *tex_backend(NvnTexture *t) {
     TexBackend *b = t->backend;
     if (b) {
-        if (b->scalable && (b->sx != g_rs_x || b->sy != g_rs_y)) {  // output resolution changed: reallocate
+        if (b->scalable && (b->req_sx != g_rs_x || b->req_sy != g_rs_y)) {  // output resolution changed: reallocate
             if (vk_effect_scale_fix()) {
                 extern void vk_effect_image_replaced(NvnTexture *t);
                 vk_effect_image_replaced(t);

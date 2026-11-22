@@ -88,7 +88,8 @@ typedef struct TexBackend {
     uint64_t touched_frame, frame_cleared;
     VkEffectContent effect_content;
     uint32_t level_gen;
-    float sx, sy;
+    float sx, sy;          // allocated size / guest size (what drawing and sampling scale by: textures.c create_image)
+    float req_sx, req_sy;  // the output scale it was made for (renderer_set_scale): a change reallocates it
     void *pending_rgba;  // host-produced pixels (video) waiting to be uploaded on the render thread
     uint32_t pending_w, pending_h, pending_stride;
     uint8_t astc_bw, astc_bh;  // ASTC without GPU support: decoded to RGBA8 on upload (runtime/nvn/astc.c)
