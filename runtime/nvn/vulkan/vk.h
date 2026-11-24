@@ -42,7 +42,10 @@ typedef struct {
     bool bias_unorm, bias_exact;
     bool storage_images;  // shaderStorageImageWriteWithoutFormat: compute shaders can store to images (SUST)
     bool cs_subgroup32;  // compute pipelines run with 32-lane subgroups (as the Switch's warps; VK 1.3 size control)
+    bool gpl, gpl_fast;
+    bool dyn_vi;
     PFN_vkCmdSetDepthBias2EXT set_bias2;
+    PFN_vkCmdSetVertexInputEXT set_vertex_input;
     // window
     VkSurfaceKHR surface;
     VkSwapchainKHR swapchain;
@@ -98,6 +101,7 @@ typedef struct TexBackend {
     uint32_t tp_gen;     // texpatch_generation() it was last uploaded with
     int reg;  // slot in textures.c's live list + 1 (a reboot destroys them all)
     VkFormat storage_fmt;  // NVN image textures (compute stores): the view format for that, else VK_FORMAT_UNDEFINED
+    VkImageUsageFlags guest_usage;  // usage of the current guest image, including any allocation fallback
 } TexBackend;
 
 TexBackend *vk_tex(NvnTexture *t, bool for_render);  // backend image (uploads CPU contents unless for_render)

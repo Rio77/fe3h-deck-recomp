@@ -18,4 +18,16 @@ if [ "${FE3H_DECK_PROFILE:-1}" != 0 ]; then
         export SDL_AUDIO_DRIVER="${SDL_AUDIO_DRIVER:-pulseaudio}"
     esac
 fi
+if [ "${FE3H_ALLOW_FOSSILIZE:-0}" != 1 ]; then
+    export DISABLE_VK_LAYER_VALVE_steam_fossilize_1="${DISABLE_VK_LAYER_VALVE_steam_fossilize_1:-1}"
+fi
+if [ "${FE3H_MESA_CACHE_OVERRIDE:-1}" != 0 ] && [ "${MESA_SHADER_CACHE_DISABLE:-0}" != 1 ] && [ "${MESA_SHADER_CACHE_DISABLE:-0}" != true ]; then
+    unset MESA_GLSL_CACHE_DIR MESA_DISK_CACHE_READ_ONLY_FOZ_DBS \
+          MESA_DISK_CACHE_READ_ONLY_FOZ_DBS_DYNAMIC_LIST MESA_DISK_CACHE_COMBINE_RW_WITH_RO_FOZ
+    DATA_ROOT="${LARECOMP_DATA_ROOT:-$PWD}"
+    mkdir -p "$DATA_ROOT/cache/mesa_cache" 2>/dev/null || true
+    export MESA_SHADER_CACHE_DIR="$DATA_ROOT/cache/mesa_cache"
+    export MESA_DISK_CACHE_SINGLE_FILE=0
+    export MESA_SHADER_CACHE_MAX_SIZE="${MESA_SHADER_CACHE_MAX_SIZE:-2G}"
+fi
 exec "$HERE/usr/bin/fe3hrecomp" "$@"

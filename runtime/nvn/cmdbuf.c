@@ -1,12 +1,71 @@
-// NVN command buffers: commands are recorded into the guest-provided command memory as CmdRec
-// records, so the game's own memory management and out-of-memory callbacks work as designed.
-// A command handle is the guest address of a list's first record.
+// NVN command buffers: host CmdRec storage isolates async Vulkan execution from guest
+// command/control pool reuse while preserving guest memory callback budgets.
+#include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "nvn.h"
 
 #define JUMP_RESERVE (sizeof(CmdRec) + 8)
+#define CONTROL_PER_RECORDING 64
+
+typedef struct CommandCopy {
+    void *data;
+    uint64_t size, mem_lo, mem_hi, ctrl_lo, ctrl_hi;
+    unsigned readers;
+    bool retired;
+    struct CommandCopy *next;
+} CommandCopy;
+static CommandCopy *command_copies;
+static pthread_mutex_t command_copies_lock = PTHREAD_MUTEX_INITIALIZER;
+
+static void copies_collect(void) {
+    CommandCopy **p = &command_copies;
+    while (*p) {
+        CommandCopy *entry = *p;
+        if (!entry->retired || entry->readers) { p = &entry->next; continue; }
+        *p = entry->next; free(entry->data); free(entry);
+    }
+}
+static void copies_reuse(uint64_t lo, uint64_t size, bool is_ctrl) {
+    if (!size || lo + size < lo) return;
+    uint64_t hi = lo + size;
+    pthread_mutex_lock(&command_copies_lock);
+    for (CommandCopy *p = command_copies; p; p = p->next) {
+        if (is_ctrl) {
+            if (p->ctrl_hi && p->ctrl_lo < hi && lo < p->ctrl_hi) p->retired = true;
+        } else {
+            if (p->mem_hi && p->mem_lo < hi && lo < p->mem_hi) p->retired = true;
+        }
+    }
+    copies_collect();
+    pthread_mutex_unlock(&command_copies_lock);
+}
+const void *nvn_command_acquire(uint64_t handle, uint64_t *size) {
+    const void *data = NULL;
+    pthread_mutex_lock(&command_copies_lock);
+    for (CommandCopy *p = command_copies; p; p = p->next)
+        if ((uintptr_t)p->data == handle && !p->retired) {
+            p->readers++; data = p->data; if (size) *size = p->size; break;
+        }
+    pthread_mutex_unlock(&command_copies_lock);
+    return data;
+}
+void nvn_command_release(uint64_t handle) {
+    pthread_mutex_lock(&command_copies_lock);
+    for (CommandCopy *p = command_copies; p; p = p->next)
+        if ((uintptr_t)p->data == handle) { if (p->readers) p->readers--; break; }
+    copies_collect();
+    pthread_mutex_unlock(&command_copies_lock);
+}
+RT_ON_RESET(command_copies_reset) {
+    extern void vk_async_drain(void) __attribute__((weak));
+    if (vk_async_drain) vk_async_drain();
+    pthread_mutex_lock(&command_copies_lock);
+    for (CommandCopy *p = command_copies; p; p = p->next) p->retired = true;
+    copies_collect();
+    pthread_mutex_unlock(&command_copies_lock);
+}
 
 static NvnCmdBuf *cb_of(uint64_t guest) { return HOST(NvnCmdBuf, guest); }
 
@@ -16,7 +75,11 @@ NVN(nvnCommandBufferInitialize) {
     SET_HOST(A(0), cb);
     RET(1);
 }
-NVN(nvnCommandBufferFinalize) { nvn_host_free(cb_of(A(0))); SET_HOST(A(0), 0); }
+NVN(nvnCommandBufferFinalize) {
+    NvnCmdBuf *b = cb_of(A(0));
+    if (b) { free(b->records); nvn_host_free(b); }
+    SET_HOST(A(0), 0);
+}
 NVN(nvnCommandBufferSetDebugLabel) { (void)c; }
 
 static CmdRec *raw_rec(uint64_t at, uint32_t op, uint32_t size) {
@@ -30,25 +93,33 @@ static CmdRec *raw_rec(uint64_t at, uint32_t op, uint32_t size) {
 NVN(nvnCommandBufferAddCommandMemory) {
     NvnCmdBuf *cb = cb_of(A(0));
     uint64_t mem = HOST(NvnPool, A(1))->storage + A(2), size = A(3);
-    if (cb->recording && cb->mem) {
-        // chain the list being recorded into the new chunk
-        CmdRec *j = raw_rec(cb->mem + cb->used, CMD_JUMP, sizeof(CmdRec));
-        j->x[0] = mem;
-    }
+    copies_reuse(mem, size, false);
     cb->mem = mem;
     cb->size = size;
     cb->used = 0;
 }
-NVN(nvnCommandBufferAddControlMemory) { (void)c; }
+NVN(nvnCommandBufferAddControlMemory) {
+    NvnCmdBuf *cb = cb_of(A(0));
+    copies_reuse(A(1), A(2), true);
+    cb->control = A(1);
+    cb->control_size = A(2);
+    cb->control_used = 0;
+}
 NVN(nvnCommandBufferGetCommandMemorySize) { RET(cb_of(A(0))->size); }
 NVN(nvnCommandBufferGetCommandMemoryUsed) { RET(cb_of(A(0))->used); }
 NVN(nvnCommandBufferGetCommandMemoryFree) {
     NvnCmdBuf *cb = cb_of(A(0));
     RET(cb->size > cb->used + JUMP_RESERVE ? cb->size - cb->used - JUMP_RESERVE : 0);
 }
-NVN(nvnCommandBufferGetControlMemorySize) { RET(0x10000); }
-NVN(nvnCommandBufferGetControlMemoryUsed) { RET(0); }
-NVN(nvnCommandBufferGetControlMemoryFree) { RET(0x10000); }
+NVN(nvnCommandBufferGetControlMemorySize) {
+    NvnCmdBuf *cb = cb_of(A(0));
+    RET(cb->control_size ? cb->control_size : 0x10000);
+}
+NVN(nvnCommandBufferGetControlMemoryUsed) { RET(cb_of(A(0))->control_used); }
+NVN(nvnCommandBufferGetControlMemoryFree) {
+    NvnCmdBuf *cb = cb_of(A(0));
+    RET(cb->control_size ? (cb->control_size > cb->control_used ? cb->control_size - cb->control_used : 0) : 0x10000);
+}
 NVN(nvnCommandBufferSetMemoryCallback) { cb_of(A(0))->callback = A(1); }
 NVN(nvnCommandBufferGetMemoryCallback) { RET(cb_of(A(0))->callback); }
 NVN(nvnCommandBufferSetMemoryCallbackData) { cb_of(A(0))->callback_data = A(1); }
@@ -70,7 +141,17 @@ static CmdRec *rec(Cpu *c, NvnCmdBuf *cb, uint32_t op, uint32_t extra) {
         guest_call(c, cb->callback);
         memcpy(c->x, saved, sizeof saved);
     }
-    CmdRec *r = raw_rec(cb->mem + cb->used, op, size);
+    uint64_t need = cb->records_used + size;
+    if (need > cb->records_cap) {
+        uint64_t cap = cb->records_cap ? cb->records_cap : 4096;
+        while (cap < need) cap *= 2;
+        void *records = realloc(cb->records, cap);
+        if (!records) FATAL("nvn: host command recording allocation failed\n");
+        cb->records = records;
+        cb->records_cap = cap;
+    }
+    CmdRec *r = raw_rec((uintptr_t)cb->records + cb->records_used, op, size);
+    cb->records_used += size;
     cb->used += size;
     return r;
 }
@@ -78,14 +159,50 @@ static CmdRec *rec(Cpu *c, NvnCmdBuf *cb, uint32_t op, uint32_t extra) {
 NVN(nvnCommandBufferBeginRecording) {
     NvnCmdBuf *cb = cb_of(A(0));
     cb->recording = true;
+    cb->records_used = 0;
+    cb->rec_mem = cb->mem + cb->used;
     rec(c, cb, CMD_BARRIER, 0);  // makes sure memory exists; the list starts here
     cb->start = cb->mem + cb->used - sizeof(CmdRec);
 }
 NVN(nvnCommandBufferEndRecording) {
     NvnCmdBuf *cb = cb_of(A(0));
     rec(c, cb, CMD_END, 0);
+    uint64_t ctrl_lo = 0, ctrl_hi = 0;
+    if (cb->control_size) {
+        for (int tries = 0; cb->control_size - cb->control_used < CONTROL_PER_RECORDING; tries++) {
+            if (!cb->callback || tries == 2) break;
+            uint64_t saved[8];
+            memcpy(saved, c->x, sizeof saved);
+            c->x[0] = cb->guest;
+            c->x[1] = 1;  // NVN_COMMAND_BUFFER_MEMORY_EVENT_OUT_OF_CONTROL_MEMORY
+            c->x[2] = 4096;
+            c->x[3] = cb->callback_data;
+            guest_call(c, cb->callback);
+            memcpy(c->x, saved, sizeof saved);
+        }
+        if (cb->control_size - cb->control_used >= CONTROL_PER_RECORDING) {
+            ctrl_lo = cb->control + cb->control_used;
+            ctrl_hi = ctrl_lo + CONTROL_PER_RECORDING;
+            cb->control_used += CONTROL_PER_RECORDING;
+        }
+    }
+    CommandCopy *copy = calloc(1, sizeof *copy);
+    if (!copy) FATAL("nvn: command handle allocation failed\n");
+    copy->data = malloc(cb->records_used);
+    copy->size = cb->records_used;
+    if (!copy->data) FATAL("nvn: command copy allocation failed\n");
+    memcpy(copy->data, cb->records, cb->records_used);
+    copy->mem_lo = cb->rec_mem;
+    copy->mem_hi = cb->mem + cb->used;
+    if (copy->mem_hi < copy->mem_lo) copy->mem_hi = copy->mem_lo;
+    copy->ctrl_lo = ctrl_lo;
+    copy->ctrl_hi = ctrl_hi;
+    pthread_mutex_lock(&command_copies_lock);
+    copy->next = command_copies;
+    command_copies = copy;
+    pthread_mutex_unlock(&command_copies_lock);
     cb->recording = false;
-    RET(cb->start);
+    RET((uintptr_t)copy->data);
 }
 NVN(nvnCommandBufferIsRecording) { RET(cb_of(A(0))->recording); }
 
@@ -441,8 +558,49 @@ PLAIN(nvnCommandBufferWaitEvent, CMD_WAIT_EVENT)
 PLAIN(nvnCommandBufferReportCounter, CMD_REPORT_COUNTER)
 NVN(nvnCommandBufferReportValue) { (void)c; }
 NVN(nvnCommandBufferResetCounter) { (void)c; }
-NVN(nvnCommandBufferCallCommands) { record_copy(c, CMD_CALL, 2, (uint32_t)A(1) * 8); }
-NVN(nvnCommandBufferCopyCommands) { record_copy(c, CMD_CALL, 2, (uint32_t)A(1) * 8); }
+static void inline_commands(Cpu *c) {
+    Snap s = snap(c);
+    int count = (int)s.x[1];
+    if (count <= 0 || count > 65536 || !s.x[2]) return;
+    typedef struct { uint8_t *data; uint64_t size; } Part;
+    Part *parts = calloc((size_t)count, sizeof *parts);
+    if (!parts) FATAL("nvn: command inline allocation failed\n");
+    for (int i = 0; i < count; i++) {
+        uint64_t handle;
+        memcpy(&handle, (const uint8_t *)(uintptr_t)s.x[2] + 8 * i, 8);
+        uint64_t size = 0;
+        const void *source = nvn_command_acquire(handle, &size);
+        if (!source || size < sizeof(CmdRec)) {
+            if (source) nvn_command_release(handle);
+            static int nlog;
+            if (nlog++ < 16) LOG("[nvn] skipped expired command handle %llx during inline copy\n", (unsigned long long)handle);
+            continue;
+        }
+        parts[i].data = malloc(size);
+        parts[i].size = size;
+        if (!parts[i].data) FATAL("nvn: command inline snapshot failed\n");
+        memcpy(parts[i].data, source, size);
+        nvn_command_release(handle);
+    }
+    for (int i = 0; i < count; i++) {
+        if (!parts[i].data) continue;
+        uint64_t offset = 0;
+        while (offset + sizeof(CmdRec) <= parts[i].size) {
+            const CmdRec *src = (const CmdRec *)(parts[i].data + offset);
+            if (src->size < sizeof *src || (src->size & 7) || src->size > parts[i].size - offset ||
+                src->op >= CMD_COUNT || src->op == CMD_JUMP || src->op == CMD_CALL)
+                FATAL("nvn: malformed command copy\n");
+            if (src->op == CMD_END) break;
+            CmdRec *dst = rec(c, cb_of(s.x[0]), src->op, src->size - sizeof *src);
+            memcpy(dst, src, src->size);
+            offset += src->size;
+        }
+        free(parts[i].data);
+    }
+    free(parts);
+}
+NVN(nvnCommandBufferCallCommands) { inline_commands(c); }
+NVN(nvnCommandBufferCopyCommands) { inline_commands(c); }
 NVN(nvnCommandBufferInsertDebugMarker) { (void)c; }
 NVN(nvnCommandBufferInsertDebugMarkerDynamic) { (void)c; }
 NVN(nvnCommandBufferInsertDebugMarkerStatic) { (void)c; }

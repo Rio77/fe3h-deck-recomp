@@ -179,7 +179,7 @@ static void create_device(void) {
     vkEnumerateDeviceExtensionProperties(g_vk.phys, NULL, &ne, NULL);
     VkExtensionProperties *ep = calloc(ne, sizeof *ep);
     vkEnumerateDeviceExtensionProperties(g_vk.phys, NULL, &ne, ep);
-    const char *ext[16];
+    const char *ext[24];
     uint32_t n_ext = 0;
     ext[n_ext++] = VK_KHR_SWAPCHAIN_EXTENSION_NAME;
     g_vk.custom_border = has_ext(ep, ne, VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME);
@@ -191,6 +191,11 @@ static void create_device(void) {
     bool fault = has_ext(ep, ne, VK_EXT_DEVICE_FAULT_EXTENSION_NAME);  // device-lost diagnostics (vk_device_fault_report)
     if (fault) ext[n_ext++] = VK_EXT_DEVICE_FAULT_EXTENSION_NAME;
     bool dbc_ext = has_ext(ep, ne, VK_EXT_DEPTH_BIAS_CONTROL_EXTENSION_NAME);
+    bool gpl_ext = has_ext(ep, ne, VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME) &&
+                   has_ext(ep, ne, VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME) &&
+                   !(getenv("LARECOMP_VK_GPL") && !atoi(getenv("LARECOMP_VK_GPL")));
+    bool dyn_vi_ext = has_ext(ep, ne, VK_EXT_VERTEX_INPUT_DYNAMIC_STATE_EXTENSION_NAME) &&
+                      !(getenv("LARECOMP_NO_DYN_VI") && atoi(getenv("LARECOMP_NO_DYN_VI")) != 0);
     bool placed_ext = getenv("FE3H_MANAGED_HEAP") && has_ext(ep, ne, VK_EXT_MAP_MEMORY_PLACED_EXTENSION_NAME) &&
                       has_ext(ep, ne, VK_KHR_MAP_MEMORY_2_EXTENSION_NAME);
     VkPhysicalDeviceMapMemoryPlacedFeaturesEXT placed = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAP_MEMORY_PLACED_FEATURES_EXT};
@@ -207,9 +212,34 @@ static void create_device(void) {
     free(ep);
 
     // features the backend relies on (all present on current desktop drivers)
-    VkPhysicalDeviceDepthBiasControlFeaturesEXT dbc_have = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_BIAS_CONTROL_FEATURES_EXT};
-    VkPhysicalDeviceFeatures2 have = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, .pNext = dbc_ext ? &dbc_have : NULL};
+    VkPhysicalDeviceVertexInputDynamicStateFeaturesEXT dyn_vi_have = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_INPUT_DYNAMIC_STATE_FEATURES_EXT};
+    VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT gpl_have = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT,
+        .pNext = dyn_vi_ext ? &dyn_vi_have : NULL};
+    VkPhysicalDeviceDepthBiasControlFeaturesEXT dbc_have = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEPTH_BIAS_CONTROL_FEATURES_EXT,
+        .pNext = gpl_ext ? (void *)&gpl_have : dyn_vi_ext ? (void *)&dyn_vi_have : NULL};
+    VkPhysicalDeviceFeatures2 have = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2,
+                                      .pNext = dbc_ext ? (void *)&dbc_have : gpl_ext ? (void *)&gpl_have : dyn_vi_ext ? (void *)&dyn_vi_have : NULL};
     vkGetPhysicalDeviceFeatures2(g_vk.phys, &have);
+    VkPhysicalDeviceGraphicsPipelineLibraryPropertiesEXT gpl_props = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_PROPERTIES_EXT};
+    if (gpl_ext) {
+        VkPhysicalDeviceProperties2 p2 = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, .pNext = &gpl_props};
+        vkGetPhysicalDeviceProperties2(g_vk.phys, &p2);
+    }
+    g_vk.gpl = gpl_ext && gpl_have.graphicsPipelineLibrary == VK_TRUE;
+    g_vk.gpl_fast = g_vk.gpl && gpl_props.graphicsPipelineLibraryFastLinking == VK_TRUE;
+    if (g_vk.gpl && !g_vk.gpl_fast) g_vk.gpl = false; /* only beneficial when fast-linking is supported */
+    if (g_vk.gpl) {
+        ext[n_ext++] = VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME;
+        ext[n_ext++] = VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME;
+    }
+    g_vk.dyn_vi = dyn_vi_ext && dyn_vi_have.vertexInputDynamicState == VK_TRUE;
+    if (g_vk.dyn_vi) ext[n_ext++] = VK_EXT_VERTEX_INPUT_DYNAMIC_STATE_EXTENSION_NAME;
+    LOG("[vk] gpl: %s%s\n", g_vk.gpl ? "yes" : "no", g_vk.gpl_fast ? " (fast-link)" : "");
+    LOG("[vk] vertex input dynamic state: %s\n", g_vk.dyn_vi ? "yes" : "no");
     // Depth bias in 24-bit units on float depth (DEPTH24 formats stand in as D32 on AMD): the constant term of a float
     // depth format scales with the depth's exponent, far smaller than 2^-24 - Three Houses' outlines, pushed back by
     // bias, came through thin geometry (cloaks) as black shards
@@ -275,6 +305,14 @@ static void create_device(void) {
     VkPhysicalDeviceFaultFeaturesEXT ff = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FAULT_FEATURES_EXT, .deviceFault = VK_TRUE,
                                            .pNext = &f11};
     VkPhysicalDeviceFeatures2 f = {.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, .pNext = fault ? (void *)&ff : (void *)&f11};
+    VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT gpl_en = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT,
+        .graphicsPipelineLibrary = VK_TRUE};
+    if (g_vk.gpl) { gpl_en.pNext = f.pNext; f.pNext = &gpl_en; }
+    VkPhysicalDeviceVertexInputDynamicStateFeaturesEXT dyn_vi_en = {
+        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_INPUT_DYNAMIC_STATE_FEATURES_EXT,
+        .vertexInputDynamicState = VK_TRUE};
+    if (g_vk.dyn_vi) { dyn_vi_en.pNext = f.pNext; f.pNext = &dyn_vi_en; }
     if (g_vk.bias_unorm) { dbc.pNext = f.pNext; f.pNext = &dbc; }
     if (g_vk.placed_heap) {
         placed.memoryMapRangePlaced = VK_FALSE;
@@ -343,6 +381,10 @@ static void create_device(void) {
     if (g_vk.bias_unorm) {
         g_vk.set_bias2 = (PFN_vkCmdSetDepthBias2EXT)vkGetDeviceProcAddr(g_vk.dev, "vkCmdSetDepthBias2EXT");
         if (!g_vk.set_bias2) g_vk.bias_unorm = false;
+    }
+    if (g_vk.dyn_vi) {
+        g_vk.set_vertex_input = (PFN_vkCmdSetVertexInputEXT)vkGetDeviceProcAddr(g_vk.dev, "vkCmdSetVertexInputEXT");
+        if (!g_vk.set_vertex_input) g_vk.dyn_vi = false;
     }
 
     VmaAllocatorCreateInfo ai = {.physicalDevice = g_vk.phys, .device = g_vk.dev, .instance = g_vk.inst,
@@ -623,7 +665,7 @@ void vk_save_png(const char *path, const uint8_t *rgba, uint32_t w, uint32_t h) 
 // ================================================================== game presentation (metal.m backend_present)
 // Draws the game's image into the window with the widescreen crop, then the overlay menu.
 extern void vk_present_draw(VkCommandBuffer cb, TexBackend *b, float vx, float vy, float vw, float vh, const float pv[8]);
-void renderer_submit(void);
+void renderer_submit_now(void);
 void renderer_set_scale(float sx, float sy);
 uint64_t renderer_present_count(void);
 void renderer_save_texture_tex(TexBackend *b, const char *path);
@@ -647,6 +689,8 @@ static void backend_present_locked(NvnTexture *t);
 void vk_backend_lock(void);
 void vk_backend_unlock(void);
 void backend_present(NvnTexture *t) {  // (one thread at a time in the backend: exec.c vk_backend_lock)
+    extern void vk_async_drain(void);
+    vk_async_drain();
     vk_backend_lock();
     backend_present_locked(t);
     vk_backend_unlock();
@@ -712,7 +756,7 @@ static void backend_present_locked(NvnTexture *t) {
         vk_frame_end(shot ? "build/window.png" : NULL);
         if (shot && getenv("LARECOMP_EXIT_AFTER_SHOT")) { fflush(stderr); _exit(0); }
     } else {
-        renderer_submit();
+        renderer_submit_now();
     }
     extern void vk_prof_frame(uint64_t frame, uint64_t present_ns);
     vk_prof_frame(total_frames, SDL_GetTicksNS() - t0);
@@ -830,7 +874,6 @@ static void quick_exit_handler(void) {
 
 void ui_window_init(void) {
     if (window) return;
-    atexit(quick_exit_handler);
     SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
     settings_load();
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) FATAL("SDL_Init: %s\n", SDL_GetError());
@@ -857,6 +900,8 @@ void ui_window_init(void) {
     create_swapchain();
     vk_exec_init();
     vk_shaders_init();
+    // atexit runs in reverse order. Wait and save the cache while the Vulkan layers are still alive.
+    atexit(quick_exit_handler);
 }
 
 SDL_Window *ui_window(void) { return window; }
@@ -869,7 +914,9 @@ void backend_init(void) {
 // ---- in-place reboot (runtime/main.c teardown; main thread, guest threads stopped)
 void backend_reset(void) {
     if (!g_vk.dev) return;
+    extern void vk_async_drain(void);
     extern void vk_compile_drain(void);
+    vk_async_drain();
     vk_compile_drain();
     vkDeviceWaitIdle(g_vk.dev);
     extern void vk_textures_reset(void);
@@ -897,7 +944,10 @@ int ui_run(void) {
                 // No guest thread may keep submitting Vulkan work while the exit
                 // handler waits for the device and reads its pipeline cache.
                 extern void kernel_stop_threads(void (*idle)(void));
+                extern void vk_async_drain(void);
                 kernel_stop_threads(NULL);
+                vk_async_drain();
+                vk_backend_lock();
                 exit(0);
             }
             extern bool input_user_blocked(const SDL_Event *e);

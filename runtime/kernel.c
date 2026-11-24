@@ -225,12 +225,19 @@ static KThread *thread_new(uint64_t entry, uint64_t arg, uint64_t stack_top, int
     t->obj.type = KOBJ_THREAD;
     t->entry = entry;
     t->prio = prio;
-    t->core = core < 0 ? 0 : core;
+    t->core_mask = 0x7u;
     t->cpu.x[0] = arg;
     t->cpu.sp = stack_top & ~15ull;
     t->cpu.excl_addr = ~0ull;
     t->cpu.thread = t;
     pthread_mutex_lock(&g_klock);  // (two guest threads may create threads at once: one id and TLS slot each)
+    static int next_core_rr;
+    if (core < 0) {
+        t->core = next_core_rr;
+        next_core_rr = (next_core_rr + 1) % 3;
+    } else {
+        t->core = core & 3;
+    }
     t->id = next_thread_id++;
     t->tlr = tls_next;
     tls_next += 0x200;
@@ -695,12 +702,27 @@ static void svc_impl(Cpu *c, uint32_t imm, uint64_t pc) {
     }
     case 0x0E: {  // GetThreadCoreMask(_, _, handle)
         KObject *o = handle_get((uint32_t)x[2]);
-        x[0] = o ? R_OK : R_INVALID_HANDLE;
-        x[1] = o ? (uint64_t)((KThread *)o)->core : 0;
-        x[2] = 0xF;
+        x[0] = (o && o->type == KOBJ_THREAD) ? R_OK : R_INVALID_HANDLE;
+        x[1] = (o && o->type == KOBJ_THREAD) ? (uint64_t)((KThread *)o)->core : 0;
+        x[2] = (o && o->type == KOBJ_THREAD) ? (uint64_t)((KThread *)o)->core_mask : 0x7u;
         break;
     }
-    case 0x0F: x[0] = R_OK; break;  // SetThreadCoreMask
+    case 0x0F: {  // SetThreadCoreMask(handle, core_id, affinity_mask)
+        KObject *o = handle_get((uint32_t)x[0]);
+        if (!o || o->type != KOBJ_THREAD) { x[0] = R_INVALID_HANDLE; break; }
+        KThread *kt = (KThread *)o;
+        int32_t cid = (int32_t)x[1];
+        uint32_t mask = (uint32_t)x[2];
+        if (mask) kt->core_mask = mask & 0xFu;
+        if (cid >= 0) kt->core = cid & 3;
+        else if (kt->core_mask && !(kt->core_mask & (1u << (kt->core & 3)))) {
+            for (int c_i = 0; c_i < 4; c_i++) {
+                if (kt->core_mask & (1u << c_i)) { kt->core = c_i; break; }
+            }
+        }
+        x[0] = R_OK;
+        break;
+    }
     case 0x10: x[0] = t_cur->core; break;  // GetCurrentProcessorNumber
     case 0x11: case 0x12: case 0x17: {  // SignalEvent / ClearEvent / ResetSignal
         pthread_mutex_lock(&g_klock);

@@ -20,7 +20,9 @@ The static recompiler translates the original AArch64 code to C and compiles it 
 
 ## Status
 
-Current version: **0.2.7** (validated opt5 engine). Tested on a Steam Deck LCD in dock mode, retaining adjustable internal resolution, audio and movies. Linux x86-64 is the release target; other devices have not received the same validation. This repository does not distribute or maintain a Windows build.
+Current version: **0.2.8** (validated opt5 + async Vulkan / GPL fast-link engine). Tested on a Steam Deck LCD in dock and handheld mode, retaining adjustable internal resolution, audio and movies. Linux x86-64 is the release target; other devices have not received the same validation. This repository does not distribute or maintain a Windows build.
+
+New 0.2.8 work adds an in-game 30/60 FPS limiter (`frame_rate` with FSR dynamic resolution target pairing), Vulkan `VK_EXT_graphics_pipeline_library` fast-linking + dynamic vertex input, off-thread compute shader pre-filtering and content deduplication, async Vulkan queue submission + command-copy isolation, persistent UBO slabs (`CSNAP`, zero buffer, descriptor set cache), O(1) 2-level function dispatch, multi-core Horizon thread scheduling, lockless concurrent `pread()` RomFS reads, isolated `mesa_cache` (Fossilize disabled), and unrestricted multi-core Steam Deck affinity.
 
 New opt5 work includes lower CPU busy-waiting, profile-specific pipeline prewarming, resource ownership fixes for internal restarts, and selected upstream fixes for GPU waits, textures, input, audio, movies, saves and mods. Structured lighting, native half translation, sparse local memory and dock behavior were already present in opt4.
 
@@ -38,7 +40,7 @@ At `match`, paired monastery tests improved p99 frame time by **2.95%** and APU 
 
 The release provides one Steam Deck installation package, which already contains the AppImage. Download that installer to play. The project source ZIP/TAR.GZ and complete corresponding-source TAR.GZ are available separately for building and license compliance; they are not extra installation steps.
 
-1. Download `FE3H-Deck-Recomp-0.2.7-steamdeck.tar.gz` from [Releases](https://github.com/Rio77/fe3h-deck-recomp/releases/latest). Extract it into a writable folder in Desktop Mode.
+1. Download `FE3H-Deck-Recomp-0.2.8-steamdeck.tar.gz` from [Releases](https://github.com/Rio77/fe3h-deck-recomp/releases/latest). Extract it into a writable folder in Desktop Mode.
 2. Keep the package together and open **Install.desktop**. Allow execution if KDE asks. Select your `exefs`, merged `romfs`, and optionally your DLC directory.
 3. Wait for local copying and compilation. In the full Deck import test this took about 43 minutes; other hardware and input/cache conditions vary. This is separate from normal game startup.
 4. Open **FE3H Deck Recomp** from the desktop. To play in Game Mode, add the installed **FE3H.sh** to Steam as a non-Steam game manually.

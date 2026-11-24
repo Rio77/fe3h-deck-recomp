@@ -8,7 +8,17 @@
 #include "gamelib.h"
 #include "hle.h"
 
-typedef struct { const uint64_t *addrs; const GuestFn *fns; uint64_t count, lo, hi; } FnTable;
+#define DISPATCH_PAGE_SHIFT 14u
+#define DISPATCH_PAGE_SIZE  (1u << DISPATCH_PAGE_SHIFT)
+#define DISPATCH_PAGE_MASK  (DISPATCH_PAGE_SIZE - 1u)
+
+typedef struct {
+    const uint64_t *addrs;
+    const GuestFn *fns;
+    uint64_t count, lo, hi;
+    uint32_t **pages;
+    uint64_t npages;
+} FnTable;
 #define NTABLES 3
 static FnTable tables[NTABLES];
 
@@ -106,19 +116,53 @@ void *hle_alloc(uint64_t size) {
     return (void *)a;
 }
 
+static void build_table_index(FnTable *ft) {
+    if (!ft->count || ft->hi < ft->lo || ((ft->hi - ft->lo) >> 2) > (128ull << 20)) return;
+    uint64_t ninsns = ((ft->hi - ft->lo) >> 2) + 1u;
+    uint64_t npages = (ninsns + DISPATCH_PAGE_SIZE - 1u) >> DISPATCH_PAGE_SHIFT;
+    uint32_t **pages = calloc((size_t)npages, sizeof *pages);
+    if (!pages) return;
+    for (uint64_t i = 0; i < ft->count; i++) {
+        uint64_t a = ft->addrs[i];
+        if (a < ft->lo || a > ft->hi || (a & 3u)) continue;
+        uint64_t rel = (a - ft->lo) >> 2;
+        uint64_t pg = rel >> DISPATCH_PAGE_SHIFT;
+        if (!pages[pg]) {
+            pages[pg] = calloc(DISPATCH_PAGE_SIZE, sizeof(uint32_t));
+            if (!pages[pg]) continue;
+        }
+        pages[pg][rel & DISPATCH_PAGE_MASK] = (uint32_t)(i + 1u);
+    }
+    ft->pages = pages;
+    ft->npages = npages;
+}
+
 void dispatch_init(void) {  // (after gamelib_load)
+    static bool built;
+    if (built) return;
     const GameLibTables *g = gamelib_tables();
     uint64_t nm = *g->main_count, ns = *g->sdk_count;
-    tables[0] = (FnTable){g->main_addrs, g->main_fns, nm, g->main_addrs[0], g->main_addrs[nm - 1]};
-    tables[1] = (FnTable){g->sdk_addrs, g->sdk_fns, ns, g->sdk_addrs[0], g->sdk_addrs[ns - 1]};
+    tables[0] = (FnTable){g->main_addrs, g->main_fns, nm, g->main_addrs[0], g->main_addrs[nm - 1], NULL, 0};
+    tables[1] = (FnTable){g->sdk_addrs, g->sdk_fns, ns, g->sdk_addrs[0], g->sdk_addrs[ns - 1], NULL, 0};
     uint64_t n0 = *g->sub0_count;
-    if (n0) tables[2] = (FnTable){g->sub0_addrs, g->sub0_fns, n0, g->sub0_addrs[0], g->sub0_addrs[n0 - 1]};
+    if (n0) tables[2] = (FnTable){g->sub0_addrs, g->sub0_fns, n0, g->sub0_addrs[0], g->sub0_addrs[n0 - 1], NULL, 0};
+    for (int t = 0; t < NTABLES; t++) build_table_index(&tables[t]);
+    built = true;
 }
 
 GuestFn dispatch_lookup(uint64_t addr) {
     for (int t = 0; t < NTABLES; t++) {
         FnTable *ft = &tables[t];
         if (!ft->count || addr < ft->lo || addr > ft->hi) continue;
+        if (ft->pages && !(addr & 3u)) {
+            uint64_t rel = (addr - ft->lo) >> 2;
+            uint64_t pg = rel >> DISPATCH_PAGE_SHIFT;
+            if (pg < ft->npages && ft->pages[pg]) {
+                uint32_t idx = ft->pages[pg][rel & DISPATCH_PAGE_MASK];
+                if (idx) return ft->fns[idx - 1u];
+                return NULL;
+            }
+        }
         uint64_t lo = 0, hi = ft->count;
         while (lo < hi) {
             uint64_t mid = (lo + hi) / 2;
@@ -130,9 +174,13 @@ GuestFn dispatch_lookup(uint64_t addr) {
     return NULL;
 }
 
-// Small direct-mapped cache in front of the binary search
-#define DCACHE 4096
+// Direct-mapped thread-local cache in front of the O(1) module index
+#define DCACHE 32768
 static __thread struct { uint64_t addr; GuestFn fn; } dcache[DCACHE];
+
+static inline unsigned dcache_slot(uint64_t pc) {
+    return (unsigned)((pc >> 2) ^ (pc >> 17)) & (DCACHE - 1);
+}
 
 __attribute__((noinline)) static GuestFn dispatch_slow(Cpu *c) {
     uint64_t pc = c->pc;
@@ -153,7 +201,7 @@ __attribute__((noinline)) static GuestFn dispatch_slow(Cpu *c) {
         const char *s = loader_symbol_at(c->x[30], &off);
         FATAL("no function at %llx (lr=%llx %s+%llx)\n", pc, c->x[30], s ? s : "?", off);
     }
-    unsigned h = (unsigned)(pc >> 2) & (DCACHE - 1);
+    unsigned h = dcache_slot(pc);
     dcache[h].addr = pc;
     dcache[h].fn = f;
     return f;
@@ -169,7 +217,7 @@ __attribute__((noinline)) static void dispatch_miss(Cpu *c) {
 
 // Always tail-calls, so chains of indirect jumps don't grow the host stack.
 void rt_dispatch(Cpu *c) {
-    unsigned h = (unsigned)(c->pc >> 2) & (DCACHE - 1);
+    unsigned h = dcache_slot(c->pc);
     if (__builtin_expect(dcache[h].addr == c->pc, 1)) {
         GuestFn f = dcache[h].fn;
         __attribute__((musttail)) return f(c);

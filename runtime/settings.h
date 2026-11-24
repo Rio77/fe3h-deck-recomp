@@ -36,6 +36,7 @@ typedef struct {
     bool reverb;         // room reverb effect
     bool movie_audio;
     bool show_fps;
+    int frame_rate;      // 60 (default: the game's present interval not applied) or 30 (applied, as on the Switch): nvn/objects.c
     bool dpad_move;      // the d-pad (and arrow keys) move Link like the stick
     int mouse_cam;       // MOUSE_CAM_*: the mouse turns the camera (the right stick): off, while the right button is
                          // held, or always (cursor hidden; left / right click = A / B)

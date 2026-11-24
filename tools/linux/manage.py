@@ -93,6 +93,24 @@ def probe_destination(root):
         raise InstallError('This destination must support writing, symbolic links and executable files: ' + str(e)) from e
 
 
+def _mesa_cache_env(root, env):
+    if env.get('FE3H_ALLOW_FOSSILIZE') != '1':
+        env.setdefault('DISABLE_VK_LAYER_VALVE_steam_fossilize_1', '1')
+    if env.get('FE3H_MESA_CACHE_OVERRIDE') == '0':
+        return env
+    if env.get('MESA_SHADER_CACHE_DISABLE') in ('1', 'true'):
+        return env
+    for key in ('MESA_GLSL_CACHE_DIR', 'MESA_DISK_CACHE_READ_ONLY_FOZ_DBS',
+                'MESA_DISK_CACHE_READ_ONLY_FOZ_DBS_DYNAMIC_LIST', 'MESA_DISK_CACHE_COMBINE_RW_WITH_RO_FOZ'):
+        env.pop(key, None)
+    mesa_dir = root / 'cache/mesa_cache'
+    mesa_dir.mkdir(parents=True, exist_ok=True)
+    env['MESA_SHADER_CACHE_DIR'] = str(mesa_dir)
+    env['MESA_DISK_CACHE_SINGLE_FILE'] = '0'
+    env.setdefault('MESA_SHADER_CACHE_MAX_SIZE', '2G')
+    return env
+
+
 def environment(root, profile=True):
     env = dict(os.environ)
     for key in list(env):
@@ -101,6 +119,7 @@ def environment(root, profile=True):
     env.pop('LD_PRELOAD', None)
     env['LARECOMP_DATA_ROOT'] = str(root)
     env['APPIMAGE_EXTRACT_AND_RUN'] = '1'
+    _mesa_cache_env(root, env)
     product = Path('/sys/class/dmi/id/product_name')
     deck = product.exists() and product.read_text().strip() in ('Jupiter', 'Galileo')
     if profile and deck:
@@ -392,10 +411,8 @@ def main():
             elif args.command in ('launch', 'settings'):
                 app = app_for(installation.root)
                 env = environment(installation.root)
-                profile = env.get('FE3H_MANAGED_HEAP') == '1'
-                affinity = (lambda: os.sched_setaffinity(0, {2, 3, 4, 5, 6, 7})) if profile and (os.cpu_count() or 1) >= 8 else None
                 command = [str(app)] + (['--play'] if args.command == 'launch' else [])
-                proc = subprocess.Popen(command, cwd=installation.root, env=env, preexec_fn=affinity, start_new_session=True)
+                proc = subprocess.Popen(command, cwd=installation.root, env=env, start_new_session=True)
                 try:
                     return proc.wait()
                 finally:

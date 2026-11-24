@@ -38,20 +38,44 @@ static RomfsLayout g_base;
 static bool g_base_open;
 static int g_base_fd = -1;  // (an older version's romfs.bin)
 static pthread_mutex_t g_base_lock = PTHREAD_MUTEX_INITIALIZER;
+#ifdef __APPLE__
 #define BASE_FDS 32  // files kept open (macOS allows 256 open files by default)
-static struct { int file, fd; uint64_t used; } g_base_fds[BASE_FDS];
+#else
+#define BASE_FDS 256
+#endif
+static struct { int file, fd, refs; uint64_t used; } g_base_fds[BASE_FDS];
 static uint64_t g_base_tick;
 
-static int base_file_fd(int i) {  // (g_base_lock held)
-    int slot = 0;
+// Caller holds g_base_lock. Returns a slot index with refs incremented, or -1 (uncached temp fd in *out_fd).
+static int base_acquire_fd(int i, int *out_fd) {
+    int slot = -1;
     for (int k = 0; k < BASE_FDS; k++) {
-        if (g_base_fds[k].fd > 0 && g_base_fds[k].file == i) { g_base_fds[k].used = ++g_base_tick; return g_base_fds[k].fd; }
-        if (g_base_fds[k].used < g_base_fds[slot].used) slot = k;
+        if (g_base_fds[k].fd > 0 && g_base_fds[k].file == i) {
+            g_base_fds[k].used = ++g_base_tick;
+            g_base_fds[k].refs++;
+            *out_fd = g_base_fds[k].fd;
+            return k;
+        }
+        if (g_base_fds[k].refs == 0 && (slot < 0 || g_base_fds[k].used < g_base_fds[slot].used)) {
+            slot = k;
+        }
     }
-    if (g_base_fds[slot].fd > 0) close(g_base_fds[slot].fd);
     int fd = open(g_base.files[i].path, O_RDONLY);
-    g_base_fds[slot].file = i, g_base_fds[slot].fd = fd > 0 ? fd : 0, g_base_fds[slot].used = ++g_base_tick;
-    return fd;
+    if (fd <= 0) {
+        *out_fd = fd;
+        return -1;
+    }
+    if (slot >= 0) {
+        if (g_base_fds[slot].fd > 0) close(g_base_fds[slot].fd);
+        g_base_fds[slot].file = i;
+        g_base_fds[slot].fd = fd;
+        g_base_fds[slot].refs = 1;
+        g_base_fds[slot].used = ++g_base_tick;
+        *out_fd = fd;
+        return slot;
+    }
+    *out_fd = fd;  // all cached slots actively in pread(): caller closes uncached temp fd
+    return -1;
 }
 
 static uint64_t base_size(void) {
@@ -82,19 +106,27 @@ static ssize_t base_pread(void *dst_, uint64_t n, uint64_t off) {
         if (g_base.files[mid].start + g_base.files[mid].size > off) first = mid, hi = mid - 1;
         else lo = mid + 1;
     }
-    pthread_mutex_lock(&g_base_lock);
     for (int i = first; i < g_base.nfiles && g_base.files[i].start < end; i++) {
         const RomfsLayoutFile *f = &g_base.files[i];
         uint64_t a = off > f->start ? off : f->start, b = end < f->start + f->size ? end : f->start + f->size;
         if (a >= b) continue;
-        int fd = base_file_fd(i);
-        if (fd <= 0 || pread(fd, dst + (a - off), b - a, (off_t)(a - f->start)) != (ssize_t)(b - a)) {
+        int fd = -1, slot;
+        pthread_mutex_lock(&g_base_lock);
+        slot = base_acquire_fd(i, &fd);
+        pthread_mutex_unlock(&g_base_lock);
+        ssize_t got = fd > 0 ? pread(fd, dst + (a - off), b - a, (off_t)(a - f->start)) : -1;
+        if (slot >= 0) {
+            pthread_mutex_lock(&g_base_lock);
+            g_base_fds[slot].refs--;
             pthread_mutex_unlock(&g_base_lock);
+        } else if (fd > 0) {
+            close(fd);
+        }
+        if (got != (ssize_t)(b - a)) {
             LOG("[fs] can't read %s\n", f->path);
             return -1;
         }
     }
-    pthread_mutex_unlock(&g_base_lock);
     return (ssize_t)n;
 }
 

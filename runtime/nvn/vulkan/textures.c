@@ -167,6 +167,15 @@ static bool format_supports(VkFormat f, VkFormatFeatureFlags want) {
     return (p.optimalTilingFeatures & want) == want;
 }
 
+static VkFormat storage_view_format(VkFormat f) {
+    switch (f) {
+    case VK_FORMAT_R8G8B8A8_SRGB: return VK_FORMAT_R8G8B8A8_UNORM;
+    case VK_FORMAT_B8G8R8A8_SRGB: return VK_FORMAT_B8G8R8A8_UNORM;
+    case VK_FORMAT_A8B8G8R8_SRGB_PACK32: return VK_FORMAT_A8B8G8R8_UNORM_PACK32;
+    default: return f;
+    }
+}
+
 // ================================================================== output resolution / per-frame clears
 // Same rules as metal.m (see the comments there).
 static float g_rs_x = 1, g_rs_y = 1;
@@ -417,8 +426,7 @@ static void create_image(NvnTexture *t, TexBackend *b) {
     VkFormat storage_fmt = VK_FORMAT_UNDEFINED;
     if ((t->flags & 4) && !depthfmt && samples == 1 && g_vk.storage_images &&
         (b->native_storage || !getenv("FE3H_DOCK_TARGETS") || !tex_scalable(t))) {
-        VkFormat sf = vf == VK_FORMAT_R8G8B8A8_SRGB ? VK_FORMAT_R8G8B8A8_UNORM : vf == VK_FORMAT_B8G8R8A8_SRGB ? VK_FORMAT_B8G8R8A8_UNORM
-                    : vf == VK_FORMAT_A8B8G8R8_SRGB_PACK32 ? VK_FORMAT_A8B8G8R8_UNORM_PACK32 : vf;
+        VkFormat sf = storage_view_format(vf);
         if (format_supports(sf, VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT)) {
             storage_fmt = sf;
             usage |= VK_IMAGE_USAGE_STORAGE_BIT;
@@ -447,6 +455,7 @@ static void create_image(NvnTexture *t, TexBackend *b) {
     }
     b->format = vf;
     b->storage_fmt = storage_fmt;
+    b->guest_usage = ci.usage;
     b->width = tw; b->height = th; b->depth = depth; b->layers = layers; b->levels = levels; b->samples = samples;
     b->aspect = depthfmt ? aspect_of(t->format) : VK_IMAGE_ASPECT_COLOR_BIT;
     b->base_type = type == VK_IMAGE_TYPE_1D ? (layers > 1 ? VK_IMAGE_VIEW_TYPE_1D_ARRAY : VK_IMAGE_VIEW_TYPE_1D)
@@ -607,6 +616,12 @@ static TexBackend *tex_backend(NvnTexture *t) {
 }
 
 void backend_texture_destroyed(NvnTexture *t) {
+    if (!t) return;
+    extern void vk_async_drain(void);
+    extern void vk_backend_lock(void);
+    extern void vk_backend_unlock(void);
+    vk_async_drain();
+    vk_backend_lock();
     TexBackend *b = t->backend;
     if (b) {
         extern void vk_alias_texture_destroyed(NvnTexture *t);  // (exec.c copy aliases: a source's contents handed over)
@@ -617,6 +632,7 @@ void backend_texture_destroyed(NvnTexture *t) {
         free(b);
     }
     t->backend = NULL;
+    vk_backend_unlock();
 }
 
 // Reboot (device.c backend_reset; GPU idle): every game texture and its views go.
@@ -813,16 +829,22 @@ void backend_pool_written(uint64_t addr, uint64_t size) { (void)addr; (void)size
 
 // Host-produced texel data (decoded video, any thread): applied on the render thread at the texture's next use.
 void renderer_upload_rgba(NvnTexture *t, const void *rgba, uint32_t w, uint32_t h, uint32_t stride) {
-    TexBackend *b = t->backend;
-    if (!b) return;  // the game binds the texture before decoding into it; first frames may arrive earlier
+    if (!t || !rgba || !w || !h || !stride) return;
     void *copy = malloc((size_t)stride * h);
+    if (!copy) return;
     memcpy(copy, rgba, (size_t)stride * h);
+    extern void vk_backend_lock(void);
+    extern void vk_backend_unlock(void);
+    vk_backend_lock();
+    TexBackend *b = t->backend;
+    if (!b) { vk_backend_unlock(); free(copy); return; }  // the game binds the texture before decoding into it; first frames may arrive earlier
     pthread_mutex_lock(&pending_lock);
     free(b->pending_rgba);
     b->pending_rgba = copy;
     b->pending_w = w; b->pending_h = h; b->pending_stride = stride;
     b->gpu_owned = true;
     pthread_mutex_unlock(&pending_lock);
+    vk_backend_unlock();
 }
 
 // ================================================================== views
@@ -854,6 +876,14 @@ VkImageView vk_image_view(TexBackend *b, VkImageViewType type, VkFormat fmt, uin
     prof_views_created++;
     VkImageViewCreateInfo vi = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, .image = b->image, .viewType = type,
                                 .format = fmt, .components = sw, .subresourceRange = {aspect, lv0, nlv, ly0, nly}};
+    // Guest images can be sampled or rendered through sRGB views and written through UNORM storage views.
+    // Restrict the incompatible sRGB view to the other usages of its parent, including for a UNORM parent.
+    VkImageViewUsageCreateInfo usage = {.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_USAGE_CREATE_INFO};
+    if ((b->guest_usage & VK_IMAGE_USAGE_STORAGE_BIT) && storage_view_format(fmt) != fmt &&
+        !format_supports(fmt, VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT)) {
+        usage.usage = b->guest_usage & ~VK_IMAGE_USAGE_STORAGE_BIT;
+        vi.pNext = &usage;
+    }
     VkImageView v;
     if (vkCreateImageView(g_vk.dev, &vi, NULL, &v) != VK_SUCCESS) {
         static int nfail;

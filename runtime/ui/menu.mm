@@ -546,6 +546,19 @@ static void tab_display(void) {
         g_want_fullscreen_apply.store(true);
     }
     opt_toggle("Show FPS", &g_settings.show_fps, false, "Shows the frame rate in the top right corner.");
+    {   // (nvn/objects.c present_interval_wait; LARECOMP_PRESENT_INTERVAL overrides it for a session)
+        static const char *const fr[] = {"30 (as on the Switch)", "60"};
+        int fi = g_settings.frame_rate == 30 ? 0 : 1;
+        char fd[400];
+        int fn = snprintf(fd, sizeof fd,
+                          "The game runs at 30 frames per second on the Switch; here it runs at 60 by default. 30 can "
+                          "be steadier and save battery on Steam Deck. The game plays at the same speed either way.");
+        if (getenv("LARECOMP_PRESENT_INTERVAL")) {
+            snprintf(fd + fn, sizeof fd - (size_t)fn, "\n\nSet for this session by LARECOMP_PRESENT_INTERVAL.");
+            opt_disable_next();
+        }
+        if (opt_choice("Frame rate", &fi, fr, 2, 1, fd)) g_settings.frame_rate = fi ? 60 : 30;
+    }
 
     opt_section("Rendering");
     // display order -> RES_* (the ini / enum order predates the menu order)

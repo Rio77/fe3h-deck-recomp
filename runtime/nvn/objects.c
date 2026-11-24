@@ -1,8 +1,11 @@
 // NVN objects, builders, and state objects (everything except command recording).
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "../kernel.h"
+#include "../platform.h"
+#include "../settings.h"
 #include "nvn.h"
 #include "../native_owners.h"
 static NativeOwners nvn_owners={.lock=PTHREAD_MUTEX_INITIALIZER};
@@ -130,7 +133,9 @@ NVN(nvnQueueSubmitCommands) {
 NVN(nvnQueueFlush) {
     (void)c;
 #ifndef __APPLE__
-    if (getenv("FE3H_BATCH_SUBMITS")) { extern void renderer_submit(void); renderer_submit(); }
+    extern bool vk_batch_submits_on(void) __attribute__((weak));
+    bool batch = vk_batch_submits_on ? vk_batch_submits_on() : (getenv("FE3H_BATCH_SUBMITS") != NULL);
+    if (batch) { extern void renderer_submit(void); renderer_submit(); }
 #endif
 }
 NVN(nvnQueueFinish) { (void)c; renderer_sync(); }
@@ -142,21 +147,58 @@ static NvnSync *sync_of(uint64_t guest) {
 }
 uint64_t renderer_fence_seq(void);
 void renderer_wait_seq(uint64_t seq);
-NVN(nvnQueueFenceSync) { NvnSync *s = sync_of(A(1)); s->signaled = 1; s->seq = renderer_fence_seq(); }
-void nvn_sync_set_seq(uint64_t guest, uint64_t seq) { NvnSync *s = sync_of(guest); s->signaled = 1; s->seq = seq; }
+NVN(nvnQueueFenceSync) {
+    NvnSync *s = sync_of(A(1));
+#ifndef __APPLE__
+    extern bool vk_async_submit_on(void) __attribute__((weak));
+    extern bool vk_async_enqueue_fence(uint64_t guest) __attribute__((weak));
+    if (vk_async_submit_on && vk_async_enqueue_fence && vk_async_submit_on()) {
+        atomic_store_explicit(&s->seq, 0, memory_order_release);
+        atomic_store_explicit(&s->signaled, 0, memory_order_release);
+        if (vk_async_enqueue_fence(A(1))) return;
+    }
+#endif
+    atomic_store_explicit(&s->seq, renderer_fence_seq(), memory_order_release);
+    atomic_store_explicit(&s->signaled, 1, memory_order_release);
+}
+void nvn_sync_set_seq(uint64_t guest, uint64_t seq) {
+    NvnSync *s = sync_of(guest);
+    atomic_store_explicit(&s->seq, seq, memory_order_release);
+    atomic_store_explicit(&s->signaled, 1, memory_order_release);
+}
 NVN(nvnQueueWaitSync) { RET(1); }
 
 // ================================================================== sync / event
 NVN(nvnSyncInitialize) { SET_HOST(A(0), nvn_host_calloc(1, sizeof(NvnSync))); RET(1); }
-NVN(nvnSyncFinalize) { nvn_host_free(HOST(NvnSync, A(0))); SET_HOST(A(0), 0); }
+NVN(nvnSyncFinalize) {
+    NvnSync *s = HOST(NvnSync, A(0));
+    if (s) {
+#ifndef __APPLE__
+        extern void vk_async_drain(void) __attribute__((weak));
+        if (vk_async_drain && !atomic_load_explicit(&s->signaled, memory_order_acquire)) vk_async_drain();
+#endif
+        nvn_host_free(s);
+    }
+    SET_HOST(A(0), 0);
+}
 NVN(nvnSyncSetDebugLabel) { (void)c; }
 void renderer_flush(void);
 NVN(nvnSyncWait) {  // NVN_SYNC_WAIT_RESULT_ALREADY_SIGNALED
+    NvnSync *sync = sync_of(A(0));
 #ifndef __APPLE__
     if (getenv("FE3H_TIMED_SYNC")) {
         extern int renderer_wait_seq_timeout(uint64_t seq, uint64_t timeout_ns);
-        NvnSync *sync = sync_of(A(0));
-        RET(sync->signaled ? renderer_wait_seq_timeout(sync->seq, A(1)) : 2);
+        uint64_t timeout_ns = A(1);
+        int sig = atomic_load_explicit(&sync->signaled, memory_order_acquire);
+        if (!sig && timeout_ns > 0) {
+            extern int vk_async_wait_signaled(_Atomic int *flag, uint64_t timeout_ns, uint64_t *rem_ns) __attribute__((weak));
+            if (vk_async_wait_signaled) {
+                uint64_t rem = timeout_ns;
+                sig = vk_async_wait_signaled(&sync->signaled, timeout_ns, &rem);
+                timeout_ns = rem;
+            }
+        }
+        RET(sig ? renderer_wait_seq_timeout(atomic_load_explicit(&sync->seq, memory_order_acquire), timeout_ns) : 2);
         return;
     }
 #endif
@@ -168,7 +210,13 @@ NVN(nvnSyncWait) {  // NVN_SYNC_WAIT_RESULT_ALREADY_SIGNALED
     if (whole < 0) whole = getenv("LARECOMP_SYNC_ALL") ? 1 : 0;
     if (flush) renderer_flush();
     else if (whole) renderer_sync();
-    else renderer_wait_seq(sync_of(A(0))->seq);  // only the submission that holds this fence
+    else {
+#ifndef __APPLE__
+        extern void vk_async_drain(void) __attribute__((weak));
+        if (!atomic_load_explicit(&sync->signaled, memory_order_acquire) && vk_async_drain) vk_async_drain();
+#endif
+        renderer_wait_seq(atomic_load_explicit(&sync->seq, memory_order_acquire));  // only the submission that holds this fence
+    }
     RET(0);
 }
 NVN(nvnSyncCreateGLSync) { RET(0); }
@@ -653,7 +701,14 @@ NvnDescPool *nvn_find_pool(NvnDescPool **reg, uint64_t guest_pool) {
 
 // ================================================================== programs
 NVN(nvnProgramInitialize) { SET_HOST(A(0), nvn_host_calloc(1, sizeof(NvnProgram))); RET(1); }
-NVN(nvnProgramFinalize) { nvn_host_free(HOST(NvnProgram, A(0))); SET_HOST(A(0), 0); }
+NVN(nvnProgramFinalize) {
+    NvnProgram *p = HOST(NvnProgram, A(0));
+    if (p) {
+        for (int i = 0; i < 6; i++) free(p->stages[i].const_snap);
+        nvn_host_free(p);
+    }
+    SET_HOST(A(0), 0);
+}
 NVN(nvnProgramSetDebugLabel) { (void)c; }
 NVN(nvnProgramSetSampleShading) { (void)c; }
 NVN(nvnProgramSetSubroutineLinkage) { RET(1); }
@@ -661,6 +716,7 @@ static void set_shaders(Cpu *c, int stride) {
     NvnProgram *p = HOST(NvnProgram, A(0));
     int n = (int)A(1);
     const uint8_t *data = AP(2);  // NVNshaderData[n] = {u64 data (GPU addr), const void* control}
+    for (int i = 0; i < 6; i++) free(p->stages[i].const_snap);
     memset(p->stages, 0, sizeof p->stages);
     p->stage_mask = 0;
     p->backend = NULL;
@@ -682,8 +738,18 @@ static void set_shaders(Cpu *c, int stride) {
         p->stages[stage].stage = stage;
         p->stages[stage].code_addr = code;
         p->stages[stage].control = control;
-        p->stages[stage].const_offset = *(const uint32_t *)(control + 0x700);
-        p->stages[stage].const_size = *(const uint32_t *)(control + 0x6FC);
+        uint32_t coff = *(const uint32_t *)(control + 0x700);
+        uint32_t csz = *(const uint32_t *)(control + 0x6FC);
+        p->stages[stage].const_offset = coff;
+        p->stages[stage].const_size = csz;
+        if (csz > 0 && csz <= 4096 && code && coff) {
+            uint8_t *snap = malloc(csz);
+            if (snap) {
+                memcpy(snap, (const void *)(uintptr_t)(code + coff), csz);
+                p->stages[stage].const_snap = snap;
+                p->stages[stage].const_snap_size = csz;
+            }
+        }
         p->stage_mask |= 1u << stage;
     }
     RET(1);
@@ -718,7 +784,7 @@ NVN(nvnWindowInitialize) {
     w->interval = (int)G(uint32_t, A(1), 0x20);
     w->active = G(uint32_t, A(1), 0x24) ? (int)G(uint32_t, A(1), 0x24) : w->num;
     SET_HOST(A(0), w);
-    LOG("[nvn] window with %d textures\n", w->num);
+    LOG("[nvn] window with %d textures, present interval %d\n", w->num, w->interval);
     RET(1);
 }
 NVN(nvnWindowFinalize) { (void)c; }
@@ -729,7 +795,11 @@ NVN(nvnWindowGetNumTextures) { RET(WIN->num); }
 NVN(nvnWindowGetNumActiveTextures) { RET(WIN->active); }
 NVN(nvnWindowSetNumActiveTextures) { WIN->active = (int)A(1); }
 NVN(nvnWindowGetPresentInterval) { RET(WIN->interval); }
-NVN(nvnWindowSetPresentInterval) { WIN->interval = (int)A(1); }
+NVN(nvnWindowSetPresentInterval) {
+    static int logged;
+    if (WIN->interval != (int)A(1) && logged++ < 20) LOG("[nvn] present interval %d -> %d\n", WIN->interval, (int)A(1));
+    WIN->interval = (int)A(1);
+}
 NVN(nvnWindowSetCrop) { int *cr = WIN->crop; cr[0] = (int)A(1); cr[1] = (int)A(2); cr[2] = (int)A(3); cr[3] = (int)A(4); }
 NVN(nvnWindowGetCrop) { memcpy(AP(1), WIN->crop, 16); }
 NVN(nvnWindowAcquireTexture) {
@@ -745,9 +815,42 @@ NVN(nvnQueueAcquireTexture) {
     w->next = (w->next + 1) % (w->active ? w->active : 1);
     RET(0);
 }
+// The present interval: vsyncs per frame (FE3H sets 2 early on: 30 fps on the Switch's 60 Hz display). Not applied by
+// default, so the game runs at 60 (it times itself by elapsed time: same speed at 30 and 60). Frame rate 30
+// (Settings > Video, g_settings.frame_rate) applies the game's interval: presents at least that many vsync periods
+// apart (the presenting thread sleeps). LARECOMP_PRESENT_INTERVAL overrides it for a session: game = the game's
+// interval, <n> = n, 0 = not applied.
+extern __thread uint64_t g_blocked_ns;  // kernel.c (the pacer counts this as idle)
+static void present_interval_wait(int game_interval) {
+    static int forced = -3;  // -2 not set, -1 the game's, 0 off, n fixed
+    if (forced == -3) {
+        const char *e = getenv("LARECOMP_PRESENT_INTERVAL");
+        forced = !e ? -2 : !strcmp(e, "game") ? -1 : atoi(e);
+        if (forced != -2) LOG("[nvn] LARECOMP_PRESENT_INTERVAL=%s: overrides the Frame rate setting\n", e);
+    }
+    int mode = forced != -2 ? forced : g_settings.frame_rate == 30 ? -1 : 0;
+    static int logged = -3;
+    if (mode != logged) {
+        logged = mode;
+        LOG("[nvn] frame rate: %s\n", mode < 0 ? "the game's present interval (30 fps)" : mode ? "fixed present interval" : "60 fps");
+    }
+    int n = mode < 0 ? game_interval : mode;
+    if (n < 2) return;
+    static uint64_t next;
+    uint64_t period = (uint64_t)n * 16666667ull, now = plat_now_ns();
+    if (next > now) {
+        plat_sleep_until_ns(next);
+        uint64_t t = plat_now_ns();
+        g_blocked_ns += t - now;
+        now = t;
+    }
+    next = next && now < next + period ? next + period : now + period;  // (fell behind by a frame: start over)
+}
+
 NVN(nvnQueuePresentTexture) {
     NvnWindow *w = HOST(NvnWindow, A(1));
     int i = (int)A(2);
+    present_interval_wait(w->interval);
     if (i >= 0 && i < w->num) {
         NvnTexture *t = HOST(NvnTexture, w->textures[i]);
         memcpy(t->window_crop, w->crop, sizeof t->window_crop);

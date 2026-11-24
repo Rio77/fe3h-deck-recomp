@@ -1,6 +1,7 @@
 // NVN implemented on the host. Guest NVN objects hold a pointer to a host object at offset 0;
 // builders and small state objects store their fields directly in guest memory.
 #pragma once
+#include <stdatomic.h>
 #include "../hle.h"
 #include "tegra.h"
 
@@ -72,6 +73,8 @@ typedef struct NvnShaderStage {
     uint64_t code_addr;       // GPU (== CPU) address of the code
     const uint8_t *control;   // control section
     uint32_t const_offset, const_size;  // compiler constants (bound as c1), within the code blob
+    uint8_t *const_snap;      // host snapshot of compiler constants (c1) taken at SetShaders time
+    uint32_t const_snap_size;
     void *backend;
 } NvnShaderStage;
 
@@ -88,19 +91,23 @@ typedef struct NvnWindow {
 } NvnWindow;
 
 typedef struct NvnSync {
-    volatile int signaled;
-    volatile uint64_t seq;  // GPU submission this fence belongs to (renderer_fence_seq), 0 = none
+    _Atomic int signaled;
+    _Atomic uint64_t seq;  // GPU submission this fence belongs to (renderer_fence_seq), 0 = none
 } NvnSync;
 
-// ---- command recording (stored in guest command memory)
+// ---- command recording (stored in host command copies, tracked against guest memory budgets)
 typedef struct {
     uint64_t mem;    // current command memory chunk (guest address)
     uint64_t size;   // chunk size
     uint64_t used;   // bytes used in chunk
+    uint64_t rec_mem; // chunk address at BeginRecording
+    uint64_t control, control_size, control_used;
     uint64_t start;  // first record of the list being recorded
     uint64_t callback, callback_data;
     bool recording;
     uint64_t guest;  // the guest NVNcommandBuffer*
+    void *records;
+    uint64_t records_used, records_cap;
 } NvnCmdBuf;
 
 // One recorded command: header, the call's integer and float arguments, then copied data.
@@ -142,3 +149,5 @@ void backend_pool_written(uint64_t addr, uint64_t size);
 // Native NVN allocations: finalized normally or retired after GPU-idle reboot.
 void *nvn_host_calloc(size_t n, size_t size);
 void nvn_host_free(void *p);
+const void *nvn_command_acquire(uint64_t handle, uint64_t *size);
+void nvn_command_release(uint64_t handle);
