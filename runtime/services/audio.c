@@ -1527,17 +1527,54 @@ static void request_update(Renderer *r, IpcReq *req, IpcResp *resp) {
     (void)resp;
 }
 
+static SDL_AudioStream *open_audio_stream(const SDL_AudioSpec *spec, const char *error_tag) {
+    SDL_AudioStream *stream = NULL;
+#ifdef __linux__
+    // Both services can open first. Hold the lock through the trial and fallback so
+    // a failed trial can only tear down the audio reference it just acquired.
+    static pthread_mutex_t open_lock = PTHREAD_MUTEX_INITIALIZER;
+    static bool first_open = true;
+    pthread_mutex_lock(&open_lock);
+    if (first_open && !SDL_WasInit(SDL_INIT_AUDIO) && !SDL_GetHint(SDL_HINT_AUDIO_DRIVER)) {
+        const char *gamepad_ui = getenv("SteamGamepadUI");
+        const char *gamescope_display = getenv("GAMESCOPE_WAYLAND_DISPLAY");
+        if (gamepad_ui && !strcmp(gamepad_ui, "1") && gamescope_display && *gamescope_display &&
+            SDL_SetHintWithPriority(SDL_HINT_AUDIO_DRIVER, "pulseaudio", SDL_HINT_DEFAULT)) {
+            if (SDL_InitSubSystem(SDL_INIT_AUDIO)) {
+                stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, spec, NULL, NULL);
+                if (!stream) SDL_QuitSubSystem(SDL_INIT_AUDIO);
+            }
+            SDL_ResetHint(SDL_HINT_AUDIO_DRIVER);
+            if (!stream) LOG("[audio] PulseAudio unavailable for the first stream, trying SDL defaults\n");
+        }
+    }
+    first_open = false;
+#endif
+    if (!stream) {
+        bool initialized = SDL_InitSubSystem(SDL_INIT_AUDIO);
+        if (initialized) stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, spec, NULL, NULL);
+        if (!stream && error_tag)
+            LOG("[%s] SDL audio %s failed: %s\n", error_tag, initialized ? "open" : "init", SDL_GetError());
+    }
+#ifdef __linux__
+    if (stream) {
+        const char *driver = SDL_GetCurrentAudioDriver();
+        LOG("[audio] SDL audio driver: %s\n", driver ? driver : "unknown");
+    }
+    pthread_mutex_unlock(&open_lock);
+#endif
+    return stream;
+}
+
 static void renderer_open_output(Renderer *r) {
     if (getenv("LARECOMP_AUDIO_WAV")) {
         r->wav = fopen(getenv("LARECOMP_AUDIO_WAV"), "wb");
         if (r->wav) wav_header(r->wav, 0);
     }
     if (getenv("LARECOMP_NO_AUDIO") && strcmp(getenv("LARECOMP_NO_AUDIO"), "0")) return;
-    if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) { LOG("[audren] SDL audio init failed: %s\n", SDL_GetError()); return; }
-    LOG("[audio-driver] %s\n", SDL_GetCurrentAudioDriver() ? SDL_GetCurrentAudioDriver() : "none");
     SDL_AudioSpec spec = {SDL_AUDIO_F32, 2, (int)r->sample_rate};
-    r->stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, NULL, NULL);
-    if (!r->stream) { LOG("[audren] SDL audio open failed: %s\n", SDL_GetError()); return; }
+    r->stream = open_audio_stream(&spec, "audren");
+    if (!r->stream) return;
     if (getenv("LARECOMP_AUDIO_GAIN")) SDL_SetAudioStreamGain(r->stream, (float)atof(getenv("LARECOMP_AUDIO_GAIN")));
     SDL_ResumeAudioStreamDevice(r->stream);
 }
@@ -1861,9 +1898,9 @@ SERVICE("audout:u", audout_u) {
         pthread_mutex_init(&a->lock, NULL);
         a->event = kernel_create_event_pair(&a->ev_w, &a->ev_r);
         if (getenv("LARECOMP_AUDOUT_WAV")) a->wav = fopen(getenv("LARECOMP_AUDOUT_WAV"), "wb");
-        if (!(getenv("LARECOMP_NO_AUDIO") && strcmp(getenv("LARECOMP_NO_AUDIO"), "0")) && SDL_InitSubSystem(SDL_INIT_AUDIO)) {
+        if (!(getenv("LARECOMP_NO_AUDIO") && strcmp(getenv("LARECOMP_NO_AUDIO"), "0"))) {
             SDL_AudioSpec spec = {SDL_AUDIO_S16, (int)a->channels, (int)a->rate};
-            a->stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, NULL, NULL);
+            a->stream = open_audio_stream(&spec, NULL);
             if (a->stream) {
                 if (getenv("LARECOMP_AUDIO_GAIN")) SDL_SetAudioStreamGain(a->stream, (float)atof(getenv("LARECOMP_AUDIO_GAIN")));
                 SDL_ResumeAudioStreamDevice(a->stream);

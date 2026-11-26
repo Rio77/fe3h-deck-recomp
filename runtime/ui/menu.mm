@@ -582,24 +582,32 @@ static void tab_display(void) {
             snprintf(d + n, sizeof d - n, " Dynamic: %.0f%% of the display right now.", output_scale_dynamic_factor() * 100);
         if (opt_choice("Internal resolution", &ri, res, NRES, RES_MATCH_AT, d, false)) g_settings.res_mode = res_mode[ri];
     }
-    {   // each OS's own upscaler next to bilinear (UPSCALE_SHARP: MetalFX on macOS, AMD FSR 1 on Windows)
+    {   // The default is MetalFX on macOS and AMD FSR 1 elsewhere.
+        constexpr int up_default = 2;
 #ifdef __APPLE__
-        static const char *ups[] = {"Bilinear", "MetalFX"};
+        static const char *ups[] = {"None - Bilinear", "Integer Scaling", "MetalFX"};
+        static const int upv[] = {UPSCALE_BILINEAR, UPSCALE_INTEGER, UPSCALE_METALFX};
         const char *ud = "How the image is scaled up to the window when it renders at a lower resolution. MetalFX: Apple's "
-                         "upscaler, sharper. Bilinear: plain and soft.";
+                         "upscaler, sharper. Integer Scaling: whole-number zoom with black borders for sharp pixels. "
+                         "Bilinear: smooths between pixels.";
 #else
-        static const char *ups[] = {"Bilinear", "AMD FSR 1"};
+        static const char *ups[] = {"None - Bilinear", "Integer Scaling", "AMD FSR 1"};
+        static const int upv[] = {UPSCALE_BILINEAR, UPSCALE_INTEGER, UPSCALE_FSR1};
         const char *ud = "How the image is scaled up to the window when it renders at a lower resolution. AMD FSR 1: "
-                         "edge-aware upscaling and sharpening, sharper. Bilinear: plain and soft.";
+                         "edge-aware upscaling and sharpening. Integer Scaling: whole-number zoom with black borders for "
+                         "sharp, even pixels (falls back to smooth scaling with Dynamic resolution or downsampling). "
+                         "Bilinear: smooths between pixels.";
 #endif
-        int ui = g_settings.upscaler == UPSCALE_BILINEAR ? 0 : 1;
+        int ui = up_default;
+        for (int i = 0; i < 3; i++)
+            if (g_settings.upscaler == upv[i]) { ui = i; break; }
         char udm[512];
         if (g_settings.res_mode == RES_MATCH) {  // (renders at the window's size: nothing to scale up)
             snprintf(udm, sizeof udm, "%s\n\nNot used at Match display: the game already renders at your display's resolution.", ud);
             ud = udm;
             opt_disable_next();
         }
-        if (opt_choice("Upscaler", &ui, ups, 2, 1, ud)) g_settings.upscaler = ui ? UPSCALE_SHARP : UPSCALE_BILINEAR;
+        if (opt_choice("Upscaler", &ui, ups, 3, up_default, ud)) g_settings.upscaler = upv[ui];
     }
     static const char *aa[] = {"Off", "SMAA"};
     opt_choice("Anti-aliasing", &g_settings.antialias, aa, 2, AA_OFF,

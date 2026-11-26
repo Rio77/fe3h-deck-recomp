@@ -60,6 +60,31 @@ static void dyn_update(double now, double gpu_ms) {
 
 double output_scale_dynamic_factor(void) { return g_dyn; }
 
+bool output_integer_viewport(unsigned rw, unsigned rh, float crop[4], double *vx, double *vy, double *vw, double *vh) {
+    if (g_settings.upscaler != UPSCALE_INTEGER || g_settings.res_mode == RES_DYNAMIC) return false;
+    // Select texels whose centers lie inside the intended crop, then align the UVs to their edges.
+    int x0 = (int)ceil((double)crop[0] * rw - 0.5);
+    int y0 = (int)ceil((double)crop[1] * rh - 0.5);
+    int cw = (int)ceil(((double)crop[0] + crop[2]) * rw - 0.5) - x0;
+    int ch = (int)ceil(((double)crop[1] + crop[3]) * rh - 0.5) - y0;
+    if (cw <= 0 || ch <= 0) return false;
+    // Round the viewport edges to device pixels before distributing the unused space.
+    int left = (int)lround(*vx), top = (int)lround(*vy);
+    int width = (int)lround(*vx + *vw) - left, height = (int)lround(*vy + *vh) - top;
+    int kx = width / cw, ky = height / ch;
+    int k = kx < ky ? kx : ky;
+    if (k < 1) return false;
+    *vx = left + (width - cw * k) / 2;
+    *vy = top + (height - ch * k) / 2;
+    *vw = cw * k;
+    *vh = ch * k;
+    crop[0] = (float)x0 / rw;
+    crop[1] = (float)y0 / rh;
+    crop[2] = (float)cw / rw;
+    crop[3] = (float)ch / rh;
+    return true;
+}
+
 void output_scale(double dw, double dh, bool reshape_allowed, double now, double gpu_ms, OutScale *o) {
     double fit = fmin(dw / 1920.0, dh / 1080.0);
     static double forced = -1, wide_test = -1;

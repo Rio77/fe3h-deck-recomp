@@ -137,7 +137,9 @@ void settings_load(void) {
                                   !strcmp(val, "50%") ? RES_Q50 : !strcmp(val, "25%") ? RES_Q25 :
                                   (n >= 1 && n <= 4) ? n : n > 4 ? 4 : RES_MATCH;  // (5x-8x were removed)
         }
-        else if (!strcmp(key, "upscaler")) g_settings.upscaler = !strcmp(val, "bilinear") ? UPSCALE_BILINEAR : UPSCALE_SHARP;  // (metalfx / fsr1: this OS's)
+        else if (!strcmp(key, "upscaler"))
+            g_settings.upscaler = !strcmp(val, "bilinear") ? UPSCALE_BILINEAR :
+                                  (!strcmp(val, "integer") || !strcmp(val, "nearest")) ? UPSCALE_INTEGER : UPSCALE_SHARP;  // (metalfx / fsr1: this OS's)
         else if (!strcmp(key, "antialias")) g_settings.antialias = !strcmp(val, "off") ? AA_OFF : AA_SMAA;  // ("fxaa": SMAA now)
         else if (!strcmp(key, "shader_wait")) g_settings.shader_wait = !strcmp(val, "off") ? SHADER_WAIT_OFF :
                                                                     !strcmp(val, "full") ? SHADER_WAIT_FULL : SHADER_WAIT_BALANCED;
@@ -201,7 +203,8 @@ void settings_save(void) {
     fprintf(f, "movie_audio = %d\n", g_settings.movie_audio);
     fprintf(f, "show_fps = %d\n", g_settings.show_fps);
     fprintf(f, "frame_rate = %d\n", g_settings.frame_rate);
-    fprintf(f, "upscaler = %s\n", g_settings.upscaler == UPSCALE_METALFX ? "metalfx" : g_settings.upscaler == UPSCALE_FSR1 ? "fsr1" : "bilinear");
+    fprintf(f, "upscaler = %s\n", g_settings.upscaler == UPSCALE_INTEGER ? "integer" :
+               g_settings.upscaler == UPSCALE_METALFX ? "metalfx" : g_settings.upscaler == UPSCALE_FSR1 ? "fsr1" : "bilinear");
     fprintf(f, "antialias = %s\n", g_settings.antialias == AA_SMAA ? "smaa" : "off");
     static const char *const waits[] = {"off", "balanced", "full"};
     fprintf(f, "shader_wait = %s\n", waits[g_settings.shader_wait % 3]);

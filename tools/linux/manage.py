@@ -126,7 +126,7 @@ def environment(root, profile=True):
         env.update(FE3H_HANDHELD='0', FE3H_MANAGED_HEAP='1', FE3H_NATIVE_HALF='1',
                    FE3H_SPARSE_LOCAL='1', FE3H_TIMED_SYNC='1', FE3H_DOCK_TARGETS='1',
                    FE3H_COMPUTE_SCF='1', FE3H_LIGHTING_SCF='1', FE3H_EFFECT_SCALE_FIX='0',
-                   FE3H_LIMITER_MARGIN_US='1000', FE3H_WARM_PROFILE='1', SDL_AUDIO_DRIVER='pulseaudio')
+                   FE3H_LIMITER_MARGIN_US='1000', FE3H_WARM_PROFILE='1')
     return env
 
 

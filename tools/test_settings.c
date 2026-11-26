@@ -8,9 +8,10 @@ bool bind_settings_load(const char *k,const char *v){return false;}
 bool cheatvm_settings_load(const char *k,const char *v){return false;}
 void bind_settings_save(FILE *f){}
 void cheatvm_settings_save(FILE *f){}
-int main(int argc,char **argv){
+ int main(int argc,char **argv){
  assert(argc==2);int step=atoi(argv[1]);settings_load();
  assert(g_settings.pad_menu_combo==(step!=1));
- if(step<2){g_settings.pad_menu_combo=step==1;settings_save();}
- printf("PASS pad_menu_combo persistence step %d\n",step);
+ if(step==1)assert(g_settings.upscaler==UPSCALE_INTEGER);
+ if(step<2){g_settings.pad_menu_combo=step==1;g_settings.upscaler=step==0?UPSCALE_INTEGER:UPSCALE_SHARP;settings_save();}
+ printf("PASS pad_menu_combo + upscaler persistence step %d\n",step);
 }

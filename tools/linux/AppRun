@@ -15,7 +15,6 @@ if [ "${FE3H_DECK_PROFILE:-1}" != 0 ]; then
         export FE3H_EFFECT_SCALE_FIX="${FE3H_EFFECT_SCALE_FIX:-0}"
         export FE3H_LIMITER_MARGIN_US="${FE3H_LIMITER_MARGIN_US:-1000}"
         export FE3H_WARM_PROFILE="${FE3H_WARM_PROFILE:-1}"
-        export SDL_AUDIO_DRIVER="${SDL_AUDIO_DRIVER:-pulseaudio}"
     esac
 fi
 if [ "${FE3H_ALLOW_FOSSILIZE:-0}" != 1 ]; then

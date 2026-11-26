@@ -92,7 +92,7 @@ static void save_png(id<MTLTexture> tex, const char *path) {
 // it): beta_<n> until 1.0, then v<major>.<minor>.<patch>.
 #define LARECOMP_VERSION "beta_4"
 // This fork's own release version (the Makefile's release file names, the start screen's corner)
-#define FE3H_VERSION "0.2.8"
+#define FE3H_VERSION "0.2.9"
 
 // ------------------------------------------------------------------ update check
 // The start screen asks GitHub for the project's releases once per launch (a background curl, which macOS and
@@ -267,12 +267,13 @@ static void set_job(const std::string &s, bool failed = false, const std::string
     pthread_mutex_unlock(&g_lock);
 }
 
-// Setup failures: a short headline and what to do next (also LARECOMP_LAUNCHER_SHOT=<f>:fail<1-7>, screenshots)
-enum { FAIL_NOT_FOUND = 1, FAIL_UNUSABLE, FAIL_COPY, FAIL_VERSION, FAIL_MISSING, FAIL_BUILD, FAIL_UPDATE_ONLY };
+// Setup failures: a short headline and what to do next (also LARECOMP_LAUNCHER_SHOT=<f>:fail<1-8>, screenshots)
+enum { FAIL_NOT_FOUND = 1, FAIL_UNUSABLE, FAIL_COPY, FAIL_VERSION, FAIL_MISSING, FAIL_BUILD, FAIL_UPDATE_ONLY, FAIL_OWN_COPY };
 static void set_failure(int k) {
     static const char *const head[] = {"", "No game files found in that folder", "Those files can't be used",
                                        "Setup didn't finish", "Not the right game", "Game files incomplete",
-                                       "The game code didn't build", "Only the update's files"};
+                                       "The game code didn't build", "Only the update's files",
+                                       "That's FE3H Recomp's own copy"};
     static const char *const hint[] = {
         "",
         "Choose the folder that holds the game files.",
@@ -282,8 +283,9 @@ static void set_failure(int k) {
         "Some files are missing. Choose the folder again; if it happens again, copy your extracted game files again.",
         "Make sure there's about 2 GB free and try again. If it keeps happening, report it on GitHub.",
         "Those are the files of the 1.2.0 update alone. Extract the base game with the update applied (one romfs "
-        "folder holding both) and choose that folder."};
-    if (k >= 1 && k <= 7) set_job(head[k], true, hint[k]);
+        "folder holding both) and choose that folder.",
+        "Choose the folder with your own extracted game files (exefs and romfs) instead."};
+    if (k >= 1 && k <= 8) set_job(head[k], true, hint[k]);
 }
 
 static bool is_dir(const std::string &p) {
@@ -295,6 +297,11 @@ static bool is_dir(const std::string &p) {
 // in the picked folder or a few levels below it (some folder layouts nest them).
 static void find_game(const std::string &dir, int depth, std::string &exefs, std::string &romfs, bool &unusable) {
     if (depth > 4 || (!exefs.empty() && !romfs.empty())) return;
+    if (exefs.empty() && romfs.empty() && file_exists(dir + "/exefs/main") && file_exists(dir + "/exefs/main.npdm") &&
+        is_dir(dir + "/romfs/" ROMFS_MARKER)) {  // (the usual layout: both side by side here)
+        exefs = dir + "/exefs", romfs = dir + "/romfs";
+        return;
+    }
     if (exefs.empty() && file_exists(dir + "/main") && file_exists(dir + "/main.npdm")) exefs = dir;
     if (romfs.empty() && is_dir(dir + "/" ROMFS_MARKER)) romfs = dir;
     DIR *d = opendir(dir.c_str());
@@ -306,7 +313,10 @@ static void find_game(const std::string &dir, int depth, std::string &exefs, std
         std::string ext = n.size() > 4 ? n.substr(n.size() - 4) : "";
         for (auto &ch : ext) ch = (char)tolower((unsigned char)ch);
         if (ext == ".xci" || ext == ".nsp" || ext == ".nca" || ext == ".nsz" || ext == ".xcz") unusable = true;
-        if (n != ROMFS_MARKER && is_dir(dir + "/" + n)) sub.push_back(dir + "/" + n);
+        std::string low = n;
+        for (auto &ch : low) ch = (char)tolower((unsigned char)ch);
+        // (mods and DLC hold romfs folders of their own, e.g. Fodlan Reborn's romfs/mods/nx: never the game's)
+        if (n != ROMFS_MARKER && low != "mods" && low != "dlc" && is_dir(dir + "/" + n)) sub.push_back(dir + "/" + n);
     }
     closedir(d);
     std::sort(sub.begin(), sub.end());
@@ -345,6 +355,19 @@ static void find_dlc(const std::string &dir, int depth, std::vector<std::string>
     closedir(d);
     std::sort(sub.begin(), sub.end());
     for (auto &s : sub) find_dlc(s, depth + 1, packs);
+}
+
+// Whether a found folder is inside the program's own copy: the exefs / romfs / dlc folders setting up again deletes
+// first (runtime/paths.c GAME_FILES). Other folders in the data root, e.g. a dump kept in extracted/<name>/, are not.
+static bool inside_own_copy(const std::string &p) {
+    char a[4096], b[4096];
+    if (!realpath(p.c_str(), a)) return false;
+    for (const char *own : {"exefs", "romfs", "dlc"}) {
+        if (!realpath((g_root + "/" + own).c_str(), b)) continue;
+        size_t n = strlen(b);
+        if (!strncmp(a, b, n) && (a[n] == '/' || a[n] == '\\' || !a[n])) return true;
+    }
+    return false;
 }
 
 static bool build_id_ok(const std::string &main_path) {  // (the right game: main.npdm next to main)
@@ -408,6 +431,7 @@ static void *extract_thread(void *) {
     pthread_mutex_unlock(&g_lock);
     g_done = 0, g_total = 0, g_phase_base = 0, g_build_frac = -1, g_copy_skipped = false;
     std::string exefs, romfs;
+    std::vector<std::string> packs;  // (DLC beside the game files)
     bool unusable = false;  // (game packages rather than its files)
     if (src.empty() && check_copied_files(g_root).empty()) {  // copied already (an update needs new game code)
         g_copy_skipped = true;
@@ -427,6 +451,19 @@ static void *extract_thread(void *) {
     set_job("Looking for the game files...");
     find_game(src, 0, exefs, romfs, unusable);
     if (exefs.empty() || romfs.empty()) { set_failure(unusable ? FAIL_UNUSABLE : FAIL_NOT_FOUND); goto done; }
+    find_dlc(src, 0, packs);  // (DLC beside the game files: copied too)
+    if (inside_own_copy(exefs) || inside_own_copy(romfs) ||
+        std::any_of(packs.begin(), packs.end(), [](const std::string &pk) { return inside_own_copy(pk); })) {
+        // (picked our own copy: use it as it is, as with no folder chosen)
+        fprintf(stderr, "[launcher] the chosen folder is our own copy of the game files\n");
+        pthread_mutex_lock(&g_lock);
+        g_src.clear();
+        pthread_mutex_unlock(&g_lock);
+        if (!check_copied_files(g_root).empty()) { set_failure(FAIL_OWN_COPY); goto done; }
+        g_copy_skipped = true;
+        if (!build_game_code()) goto done;
+        goto check;
+    }
     if (!build_id_ok(exefs + "/main")) { set_failure(FAIL_VERSION); goto done; }
     if (count_files(romfs, ROMFS_MIN_FILES) < ROMFS_MIN_FILES) { set_failure(FAIL_UPDATE_ONLY); goto done; }
     {
@@ -440,19 +477,9 @@ static void *extract_thread(void *) {
         }
     }
     {
-        // (the picked folder can't be our own copy: setting up again deletes that first)
-        char a[4096], b[4096];
-        mkdir(g_root.c_str(), 0755);
-        if (realpath(exefs.c_str(), a) && realpath(g_root.c_str(), b) && !strncmp(a, b, strlen(b)) &&
-            (a[strlen(b)] == '/' || a[strlen(b)] == '\\' || !a[strlen(b)])) {
-            set_failure(FAIL_NOT_FOUND);
-            goto done;
-        }
         rt_remove_game_files(g_root.c_str());  // (an earlier or interrupted setup's; removes the folder too)
         mkdir(g_root.c_str(), 0755);
         unsigned long long rbytes = romfs_dir_bytes(romfs.c_str());
-        std::vector<std::string> packs;  // (DLC beside the game files: copied too)
-        find_dlc(src, 0, packs);
         unsigned long long dbytes = 0;
         for (auto &pk : packs) dbytes += romfs_dir_bytes((pk + "/romfs").c_str());
         g_total = rbytes + dbytes;  // (no image built from them any more: the game reads the romfs folder)

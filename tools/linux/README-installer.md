@@ -6,7 +6,7 @@ The installer uses the bundled AppImage to prepare and compile the game. Compila
 
 ## If the installer fails: use the AppImage directly
 
-Close the installer first, then launch **FE3H-Deck-Recomp-0.2.8-linux-x86_64.AppImage** directly in Desktop Mode.
+Close the installer first, then launch **FE3H-Deck-Recomp-0.2.9-linux-x86_64.AppImage** directly in Desktop Mode.
 
 If the game is not already detected, open **Settings > Game Files**, select the folder containing your own FE3H 1.2.0 `exefs` and merged `romfs`, and run **Set up game files**. Wait for copying and compilation to finish, then choose **Play**. Your input files still need to be complete and valid.
 
