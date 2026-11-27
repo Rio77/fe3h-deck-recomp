@@ -554,9 +554,9 @@ static void image_barrier(VkCommandBuffer cb, VkImage img, VkImageLayout from, V
 typedef struct { uint32_t image; VkSemaphore acquired; bool ok; } Frame;
 static Frame cur_frame;
 
-// Acquire the next window image and begin rendering into it (cleared to `clear`). Returns false when there is
-// nothing to draw into (minimised window).
-bool vk_frame_begin(const float clear[4]) {
+// Acquire the next swapchain image without opening a render pass yet, so post-processing (SMAA / FSR 1)
+// runs directly without an empty swapchain clear+store+load suspend/resume cycle.
+static bool vk_frame_acquire(void) {
     cur_frame.ok = false;
     int w, h;
     SDL_GetWindowSizeInPixels(window, &w, &h);
@@ -577,6 +577,12 @@ bool vk_frame_begin(const float clear[4]) {
     if (r != VK_SUCCESS && r != VK_SUBOPTIMAL_KHR) { LOG("[vk] acquire failed: %d\n", r); return false; }
     cur_frame.acquired = acquire_sem[slot];
     slot_seq[slot] = vk_pending_seq();
+    cur_frame.ok = true;
+    return true;
+}
+
+static void vk_frame_start_render(const float clear[4]) {
+    if (!cur_frame.ok) return;
     VkCommandBuffer cb = vk_cmd();
     image_barrier(cb, g_vk.sc_images[cur_frame.image], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     VkRenderingAttachmentInfo ca = {.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO, .imageView = g_vk.sc_views[cur_frame.image],
@@ -590,7 +596,13 @@ bool vk_frame_begin(const float clear[4]) {
     VkRect2D sc = {{0, 0}, g_vk.sc_extent};
     vkCmdSetViewport(cb, 0, 1, &vp);
     vkCmdSetScissor(cb, 0, 1, &sc);
-    cur_frame.ok = true;
+}
+
+// Acquire the next window image and begin rendering into it (cleared to `clear`). Returns false when there is
+// nothing to draw into (minimised window).
+bool vk_frame_begin(const float clear[4]) {
+    if (!vk_frame_acquire()) return false;
+    vk_frame_start_render(clear);
     return true;
 }
 
@@ -664,7 +676,10 @@ void vk_save_png(const char *path, const uint8_t *rgba, uint32_t w, uint32_t h) 
 
 // ================================================================== game presentation (metal.m backend_present)
 // Draws the game's image into the window with the widescreen crop, then the overlay menu.
-extern void vk_present_draw(VkCommandBuffer cb, TexBackend *b, float vx, float vy, float vw, float vh, float pv[8]);
+extern VkImageView vk_present_prepare(VkCommandBuffer cb, TexBackend *b, float vx, float vy, float vw, float vh,
+                                      float pv[8], bool *downsampled);
+extern void vk_present_blit(VkCommandBuffer cb, TexBackend *b, VkImageView src, float vx, float vy, float vw, float vh,
+                            float pv[8], bool downsampled);
 void renderer_submit_now(void);
 void renderer_set_scale(float sx, float sy);
 uint64_t renderer_present_count(void);
@@ -702,7 +717,7 @@ static void backend_present_locked(NvnTexture *t) {
     vk_end_pass();
     static const float black[4] = {0, 0, 0, 1};
     uint64_t t0 = SDL_GetTicksNS();
-    bool have = vk_frame_begin(black);
+    bool have = vk_frame_acquire();
     uint64_t nd = SDL_GetTicksNS() - t0;
     if (nd > 30000000) {
         static int warned;
@@ -745,7 +760,10 @@ static void backend_present_locked(NvnTexture *t) {
         VkCommandBuffer cb = vk_cmd();
         float pv[8] = {renderer_origin_lower_left() ? 1.0f : 0.0f, 0, 0, 0, crop[0], crop[1], crop[2], crop[3]};
         memcpy(g_shot_crop, crop, sizeof crop);
-        vk_present_draw(cb, b, (float)vx, (float)vy, (float)vw, (float)vh, pv);
+        bool downsampled = false;
+        VkImageView src = vk_present_prepare(cb, b, (float)vx, (float)vy, (float)vw, (float)vh, pv, &downsampled);
+        vk_frame_start_render(black);
+        vk_present_blit(cb, b, src, (float)vx, (float)vy, (float)vw, (float)vh, pv, downsampled);
         static long menu_at = -1;
         if (menu_at < 0) menu_at = getenv("LARECOMP_MENU_AT") ? atol(getenv("LARECOMP_MENU_AT")) : 0;
         if (menu_at && (long)total_frames + 1 == menu_at) { extern void menu_test_open(void); menu_test_open(); }

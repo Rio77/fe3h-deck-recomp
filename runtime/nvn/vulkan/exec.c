@@ -5790,7 +5790,7 @@ static void post_pass(VkCommandBuffer cb, const char *fs, const VkImageView *src
 }
 
 // The view the present samples: the game image, or its anti-aliased / upscaled version. ow x oh: the whole image's
-// size in the window (its crop is drawn into the viewport).
+// size in the window (its crop is drawn into the viewport). Runs outside the swapchain render pass.
 static VkImageView post_process(VkCommandBuffer cb, TexBackend *b, double ow_d, double oh_d, bool *downsampled) {
     VkImageView v = raw_view(b);
     bool smaa = g_settings.antialias == AA_SMAA;
@@ -5800,10 +5800,10 @@ static VkImageView post_process(VkCommandBuffer cb, TexBackend *b, double ow_d, 
     bool up = ow > b->width + 1 || oh > b->height + 1;
     *downsampled = !up && (ow + 1 < b->width || oh + 1 < b->height);
     bool fsr = up && g_settings.upscaler == UPSCALE_FSR1;  // (an upscale only)
-    if (!smaa && !fsr) return v;
-    extern void vk_frame_suspend(void);
-    extern void vk_frame_resume(void);
-    vk_frame_suspend();
+    if (!smaa && !fsr) {
+        vk_full_barrier(cb);
+        return v;
+    }
     if (smaa) {  // SMAA 1x: luma edges -> blending weights -> neighbourhood blending
         float w = (float)b->width, h = (float)b->height;
         float m[8] = {1.0f / w, 1.0f / h, w, h};
@@ -5829,7 +5829,6 @@ static VkImageView post_process(VkCommandBuffer cb, TexBackend *b, double ow_d, 
         v = post_view(r);
     }
     vk_full_barrier(cb);
-    vk_frame_resume();
     {
         static uint32_t piw, pih, pow_, poh;
         static int psm = -1, pfs = -1;
@@ -5840,12 +5839,20 @@ static VkImageView post_process(VkCommandBuffer cb, TexBackend *b, double ow_d, 
     return v;
 }
 
-// Inside the window image's rendering (device.c vk_frame_begin): the game image into (vx, vy, vw, vh).
-void vk_present_draw(VkCommandBuffer cb, TexBackend *b, float vx, float vy, float vw, float vh, float pv[8]) {
-    if (!b || !b->image || (b->aspect & ~VK_IMAGE_ASPECT_COLOR_BIT)) return;
+// Prepares the source view (SMAA / FSR 1) BEFORE the swapchain render pass opens.
+VkImageView vk_present_prepare(VkCommandBuffer cb, TexBackend *b, float vx, float vy, float vw, float vh,
+                               float pv[8], bool *downsampled) {
+    (void)vx; (void)vy;
+    *downsampled = false;
+    if (!b || !b->image || (b->aspect & ~VK_IMAGE_ASPECT_COLOR_BIT)) return VK_NULL_HANDLE;
     double ow = pv[6] > 0 ? vw / pv[6] : vw, oh = pv[7] > 0 ? vh / pv[7] : vh;
-    bool downsampled = false;
-    VkImageView src = post_process(cb, b, ow, oh, &downsampled);
+    return post_process(cb, b, ow, oh, downsampled);
+}
+
+// Inside the window image's rendering (device.c vk_frame_start_render): blits `src` into (vx, vy, vw, vh).
+void vk_present_blit(VkCommandBuffer cb, TexBackend *b, VkImageView src, float vx, float vy, float vw, float vh,
+                     float pv[8], bool downsampled) {
+    if (!b || !b->image || !src || (b->aspect & ~VK_IMAGE_ASPECT_COLOR_BIT)) return;
     double x = vx, y = vy, w_fit = vw, h_fit = vh;
     bool nearest = !downsampled && output_integer_viewport(b->width, b->height, pv + 4, &x, &y, &w_fit, &h_fit);
     VkPipeline p = present_pipeline(g_vk.sc_format);

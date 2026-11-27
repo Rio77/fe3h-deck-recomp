@@ -20,7 +20,9 @@ The static recompiler translates the original AArch64 code to C and compiles it 
 
 ## Status
 
-Current version: **0.2.9** (validated opt5 + async Vulkan / GPL fast-link engine). Tested on a Steam Deck LCD in dock and handheld mode, retaining adjustable internal resolution, audio and movies. Linux x86-64 is the release target; other devices have not received the same validation. This repository does not distribute or maintain a Windows build.
+Current version: **0.3.0** (validated opt5 + async Vulkan / GPL fast-link + extended structured fragment shaders). Tested on a Steam Deck LCD in dock and handheld mode, retaining adjustable internal resolution, audio and movies. Linux x86-64 is the release target; other devices have not received the same validation. This repository does not distribute or maintain a Windows build.
+
+New 0.3.0 work delivers a major Steam Deck GPU performance upgrade: extends Structured Control Flow (`FE3H_LIGHTING_SCF`) to FE3H's heaviest deferred lighting & post-processing fragment shaders (`4b68a2b8cf21d44d`, `e205b94894daff2f`, and `6f61034ed0d2c1dd`), cutting native 1080p Monastery GPU frame time from **30.46 ms (35.1 fps) down to 18.58 ms (49.4 fps)** — a **~41% FPS gain** (`4b68a2b8cf21d44d` alone drops from 12.85 ms to 2.31 ms, 5.58x faster, pixel-verified) — and moves `post_process()` (SMAA / AMD FSR 1) before opening the swapchain render pass to eliminate redundant `vk_frame_suspend`/`vk_frame_resume` clear+store+load cycles.
 
 New 0.2.9 work ports selected upstream improvements: **Integer Scaling** in *Settings > Video > Upscaler* (whole-number nearest scaling with centered borders for sharp 2x/3x output in Dock mode, falling back smoothly on Dynamic resolution or downsampling), automatic **PulseAudio selection with SDL default fallback** in Linux Steam Game Mode (`open_audio_stream()` in `audio.c`), and **Game Files setup detection fixes** (preferring side-by-side `exefs/` + `romfs/`, skipping `mods/` and `dlc/`, and only treating setup's own `exefs`/`romfs`/`dlc` folders as its own copy).
 
@@ -42,7 +44,7 @@ At `match`, paired monastery tests improved p99 frame time by **2.95%** and APU 
 
 The release provides one Steam Deck installation package, which already contains the AppImage. Download that installer to play. The project source ZIP/TAR.GZ and complete corresponding-source TAR.GZ are available separately for building and license compliance; they are not extra installation steps.
 
-1. Download `FE3H-Deck-Recomp-0.2.9-steamdeck.tar.gz` from [Releases](https://github.com/Rio77/fe3h-deck-recomp/releases/latest). Extract it into a writable folder in Desktop Mode.
+1. Download `FE3H-Deck-Recomp-0.3.0-steamdeck.tar.gz` from [Releases](https://github.com/Rio77/fe3h-deck-recomp/releases/latest). Extract it into a writable folder in Desktop Mode.
 2. Keep the package together and open **Install.desktop**. Allow execution if KDE asks. Select your `exefs`, merged `romfs`, and optionally your DLC directory.
 3. Wait for local copying and compilation. In the full Deck import test this took about 43 minutes; other hardware and input/cache conditions vary. This is separate from normal game startup.
 4. Open **FE3H Deck Recomp** from the desktop. To play in Game Mode, add the installed **FE3H.sh** to Steam as a non-Steam game manually.

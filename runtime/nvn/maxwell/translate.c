@@ -2759,8 +2759,11 @@ ShaderInfo *maxwell_translate(const uint8_t *blob, size_t max_size, int stage, c
             free(diff);
         }
     }
-    bool lighting_scf = fe3h_lighting_scf && stage == STAGE_FRAGMENT &&
-                        scf_hash_of(blob, max_size, stage) == 0x3c6cdd99b3f79977ull;
+    uint64_t fhash = (fe3h_lighting_scf && stage == STAGE_FRAGMENT) ? scf_hash_of(blob, max_size, stage) : 0;
+    bool lighting_scf = fhash == 0x3c6cdd99b3f79977ull ||
+                        fhash == 0x4b68a2b8cf21d44dull ||
+                        fhash == 0x6f61034ed0d2c1ddull ||
+                        fhash == 0xe205b94894daff2full;
     if (((maxwell_scf && stage == STAGE_COMPUTE) || lighting_scf) && c->glsl && any_branch && !dbg) {
         info->scf_hash = scf_hash_of(blob, max_size, stage);
         bool want = lighting_scf || maxwell_scf_nonly == 0;
