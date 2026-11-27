@@ -115,6 +115,9 @@ void rt_paths_init(void) {
         fail(msg);
     }
     if (!getcwd(g_root, sizeof g_root)) snprintf(g_root, sizeof g_root, "%s", root);
+    char amiibo_dir[1100];
+    snprintf(amiibo_dir, sizeof amiibo_dir, "%s" SEP "Amiibo", g_root);
+    mkdirs(amiibo_dir);
     fprintf(stderr, "[paths] data: %s\n", g_root);
 }
 

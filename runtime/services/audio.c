@@ -1535,10 +1535,10 @@ static SDL_AudioStream *open_audio_stream(const SDL_AudioSpec *spec, const char 
     static pthread_mutex_t open_lock = PTHREAD_MUTEX_INITIALIZER;
     static bool first_open = true;
     pthread_mutex_lock(&open_lock);
-    if (first_open && !SDL_WasInit(SDL_INIT_AUDIO) && !SDL_GetHint(SDL_HINT_AUDIO_DRIVER)) {
-        const char *gamepad_ui = getenv("SteamGamepadUI");
-        const char *gamescope_display = getenv("GAMESCOPE_WAYLAND_DISPLAY");
-        if (gamepad_ui && !strcmp(gamepad_ui, "1") && gamescope_display && *gamescope_display &&
+    if (first_open && !SDL_WasInit(SDL_INIT_AUDIO)) {
+        const char *driver_hint = SDL_GetHint(SDL_HINT_AUDIO_DRIVER);
+        const char *auto_pulse = getenv("FE3H_AUDIO_AUTO_PULSE");
+        if (!(driver_hint && *driver_hint) && !(auto_pulse && !strcmp(auto_pulse, "0")) &&
             SDL_SetHintWithPriority(SDL_HINT_AUDIO_DRIVER, "pulseaudio", SDL_HINT_DEFAULT)) {
             if (SDL_InitSubSystem(SDL_INIT_AUDIO)) {
                 stream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, spec, NULL, NULL);

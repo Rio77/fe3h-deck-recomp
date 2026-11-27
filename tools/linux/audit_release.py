@@ -14,7 +14,7 @@ parser.add_argument('--manifest', type=Path)
 args = parser.parse_args()
 root = (args.source or args.appdir).resolve()
 if not root.is_dir():raise SystemExit('Artifact folder does not exist')
-forbidden_parts = {'save', 'saves', 'extracted', 'romfs', 'exefs', 'cache', '.ssh', 'private', 'node_modules'}
+forbidden_parts = {'save', 'saves', 'amiibo', 'extracted', 'romfs', 'exefs', 'cache', '.ssh', 'private', 'node_modules'}
 forbidden_names = {'DATA0.bin', 'DATA1.bin', 'INFO0.bin', 'INFO2.bin', 'DlcVersion.bin', 'romfs.bin',
                    'warm.bin', 'warm_cs.bin', 'rclone.conf', 'deck_build_key', 'known_hosts', 'fe3hrecomp.ini'}
 forbidden_suffixes = {'.nso', '.npdm', '.nca', '.nsp', '.nsz', '.xci', '.webm', '.mp4', '.bntx', '.bfres', '.bfttf', '.spv', '.rdc', '.log', '.rej'}

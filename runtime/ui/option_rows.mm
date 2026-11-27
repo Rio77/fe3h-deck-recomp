@@ -48,8 +48,9 @@ void opt_section(const char *title) {
 
 // One row: draws it, handles A / click and left / right while selected. Returns 2 (A / click), -1 / +1 (left / right) or 0.
 // arrows: ◀ value ▶ (a choice of several, or a stepper): left / right step it, and the arrows click too
+// dropdown: value ▼ (opens a picker popup on A / click, left / right still step)
 static int row(const char *label, const std::string &value, bool changed, const char *desc, bool upper = true,
-               bool arrows = false) {
+               bool arrows = false, bool dropdown = false) {
     ImGui::PushID(label);
     if (g_indent) ImGui::SetCursorPosX(ImGui::GetCursorPosX() + g_indent * 28 * g_scale);  // (an option of the row above)
     ImVec2 p = ImGui::GetCursorScreenPos();
@@ -99,7 +100,14 @@ static int row(const char *label, const std::string &value, bool changed, const 
     ImU32 label_col = off ? IM_COL32(110, 110, 102, 255) : THEME_TEXT_U32;  // (greyed out: clearly dim)
     dl->AddText(ImVec2(p.x + pad, ty), label_col, t.c_str());
     float right = p.x + w - pad;  // (the value's right edge)
-    if (arrows && !value.empty()) {  // ◀ value ▶, drawn (the fonts have no arrow glyphs); a click on one steps
+    if (dropdown) {  // ▼ indicator on the far right (drawn, as the fonts have no arrow glyphs)
+        float aw = fs * 0.46f, gap = fs * 0.55f, cy = ty + fs * 0.50f;
+        float dx = right - aw;
+        ImU32 ac = off ? IM_COL32(110, 110, 100, 255) : hov || foc ? kGold : IM_COL32(170, 170, 160, 255);
+        dl->AddTriangleFilled(ImVec2(dx, cy - aw * 0.35f), ImVec2(dx + aw, cy - aw * 0.35f),
+                              ImVec2(dx + aw * 0.5f, cy + aw * 0.45f), ac);
+        right = dx - gap;
+    } else if (arrows && !value.empty()) {  // ◀ value ▶, drawn (the fonts have no arrow glyphs); a click on one steps
         float aw = fs * 0.42f, gap = fs * 0.55f, cy = ty + fs * 0.52f;
         float rx = right - aw, lx = rx - gap - ImGui::CalcTextSize(value.c_str()).x - gap - aw;
         ImU32 ac = off ? IM_COL32(110, 110, 100, 255) : hov || foc ? kGold : IM_COL32(170, 170, 160, 255);
@@ -136,6 +144,66 @@ bool opt_choice(const char *label, int *v, const char *const *names, int n, int 
     if (nv == cur) return false;
     *v = nv;
     return true;
+}
+
+bool opt_dropdown(const char *label, int *v, const char *const *names, int n, int def, const char *desc) {
+    if (n <= 0) return false;
+    int cur = *v >= 0 && *v < n ? *v : 0;
+    int step = row(label, names[cur], cur != def, desc, true, false, n > 1);
+    ImVec2 rmin = ImGui::GetItemRectMin(), rmax = ImGui::GetItemRectMax();
+    bool changed = false;
+
+    ImGui::PushID(label);
+    if (n > 1 && (step == -1 || step == 1)) {
+        int nv = (cur + step + n) % n;
+        if (nv != cur) { *v = nv; changed = true; }
+    } else if (n > 1 && step == 2) {
+        ImGui::OpenPopup("##dropdown");
+    }
+
+    if (ImGui::IsPopupOpen("##dropdown")) {
+        float item_h = ImGui::GetFontSize() * 1.65f;
+        float max_h = 320.0f * g_scale;
+        float pop_w = rmax.x - rmin.x;
+        float pop_h = n * item_h + 16.0f * g_scale;
+        if (pop_h > max_h) pop_h = max_h;
+        float space_below = ImGui::GetIO().DisplaySize.y - rmax.y - 16.0f * g_scale;
+        float py = space_below >= pop_h ? (rmax.y + 4.0f * g_scale) : (rmin.y - pop_h - 4.0f * g_scale);
+        ImGui::SetNextWindowPos(ImVec2(rmin.x, py), ImGuiCond_Always);
+        ImGui::SetNextWindowSize(ImVec2(pop_w, pop_h), ImGuiCond_Always);
+    }
+    ImGui::PushStyleColor(ImGuiCol_PopupBg, THEME_POPUP);
+    ImGui::PushStyleColor(ImGuiCol_Border, THEME_GOLD);
+    ImGui::PushStyleColor(ImGuiCol_Header, THEME_ACTIVE);
+    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, THEME_HOVER);
+    ImGui::PushStyleColor(ImGuiCol_HeaderActive, THEME_ACTIVE);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 8.0f * g_scale);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.5f);
+    if (ImGui::BeginPopup("##dropdown")) {
+        bool appearing = ImGui::IsWindowAppearing();
+        for (int i = 0; i < n; i++) {
+            ImGui::PushID(i);
+            bool sel = (i == cur);
+            if (sel) ImGui::PushStyleColor(ImGuiCol_Text, THEME_GOLD_BRIGHT);
+            if (ImGui::Selectable(names[i], sel)) {
+                if (i != *v) { *v = i; changed = true; }
+                ImGui::CloseCurrentPopup();
+            }
+            if (sel) {
+                ImGui::PopStyleColor();
+                if (appearing) {
+                    ImGui::SetItemDefaultFocus();
+                    ImGui::SetScrollHereY(0.5f);
+                }
+            }
+            ImGui::PopID();
+        }
+        ImGui::EndPopup();
+    }
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor(5);
+    ImGui::PopID();
+    return changed;
 }
 
 bool opt_slider(const char *label, float *v, float lo, float hi, float step, float def, const char *fmt, const char *desc) {

@@ -29,5 +29,10 @@ class AuditTests(unittest.TestCase):
             p=Path(t);(p/'escape').symlink_to(p.parent)
             self.assertNotEqual(self.audit(p).returncode,0)
 
+    def test_amiibo_directory_is_rejected(self):
+        with tempfile.TemporaryDirectory() as t:
+            p=Path(t);(p/'Amiibo').mkdir();(p/'Amiibo/Marth.bin').write_bytes(b'synthetic')
+            self.assertNotEqual(self.audit(p).returncode,0)
+
 
 if __name__=='__main__':unittest.main()

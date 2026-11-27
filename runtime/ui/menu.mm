@@ -44,6 +44,7 @@ void controls_bindings_draw(float scale);  // controls_ui.mm
 #include "../input_bind.h"
 #include "../paths.h"
 #include "../gamebuild.h"
+#include "../services/nfp.h"
 }
 
 // ------------------------------------------------------------------ state shared with the main thread
@@ -93,6 +94,7 @@ static void set_open(bool open) {
     bind_capture_cancel();
     if (open) {
         save_editor_on_open();
+        nfp_rescan_amiibos();
         static bool opened;  // the controller's cursor: the first tab (Controls) the first time this session, later the
         menu_tabs_focus(!opened);  // selected one
         opened = true;
@@ -687,8 +689,13 @@ static void tab_quit(float scale, bool in_game) {
     opt_end();
 }
 
-// Game: what the game itself is told (its language). Cheats will live here too.
+// Game: what the game itself is told (its language). Amiibo and cheats live here too.
 static void tab_game(void) {
+    static bool nfp_scanned = false;
+    if (!nfp_scanned || ImGui::IsWindowAppearing()) {
+        nfp_scanned = true;
+        nfp_rescan_amiibos();
+    }
     opt_begin("##game", ImGui::GetFontSize() / 34);
     opt_section("System");
     // what the game is told the console's language is: its text follows this (runtime/settings.c)
@@ -701,6 +708,44 @@ static void tab_game(void) {
                    "The console language the game is told, which picks its text language (the voice language is in "
                    "the game's own settings). Applies when the game restarts: Quit to Start Screen, then Play."))
         settings_save();
+    // Amiibo (Amiibo/ folder in the data root): runtime/services/nfp.c
+    opt_section("Amiibo");
+    {
+        static NfpAmiiboInfo amiibos[NFP_MAX_ENTRIES];
+        static uint64_t amiibo_gen = 0;
+        NfpUiState ast;
+        nfp_ui_snapshot(amiibos, NFP_MAX_ENTRIES, &amiibo_gen, &ast);
+
+        const char *anames[NFP_MAX_ENTRIES + 1];
+        anames[0] = "None";
+        for (int i = 0; i < ast.count; i++) anames[1 + i] = amiibos[i].name;
+
+        char adesc[768];
+        if (ast.count == 0) {
+            snprintf(adesc, sizeof adesc,
+                     "No valid Amiibo .bin files found.\n\n"
+                     "Place compatible .bin dumps inside:\n%s/Amiibo/\n"
+                     "then reopen this menu to pick one. Visiting the Garreg Mach Monastery Amiibo Gazebo with None selected is safe.",
+                     rt_data_root());
+        } else if (ast.selected_ui == 0) {
+            snprintf(adesc, sizeof adesc,
+                     "Choose a compatible Amiibo .bin from %s/Amiibo/ (%d detected).\n\n"
+                     "With None selected, visiting the Garreg Mach Monastery Amiibo Gazebo waits safely without crashing. "
+                     "After a completed gazebo scan, selection automatically returns to None.",
+                     rt_data_root(), ast.count);
+        } else {
+            uint16_t char_id = (uint16_t)((ast.active_tag.char_id[0] << 8) | ast.active_tag.char_id[1]);
+            const char *state_note = (ast.dev_state == 1 || ast.dev_state == 2 || ast.dev_state == 4)
+                ? "Gazebo active: ready for immediate read."
+                : "Armed: stays selected until read at the Garreg Mach Monastery Amiibo Gazebo (resets to None only after a completed read).";
+            snprintf(adesc, sizeof adesc,
+                     "File: %s\nCharacter ID: 0x%04X   Numbering ID: 0x%04X\n\n%s",
+                     ast.active_tag.rel_path, char_id, ast.active_tag.numbering_id, state_note);
+        }
+
+        int sel = ast.selected_ui;
+        if (opt_dropdown("Amiibo", &sel, anames, 1 + ast.count, 0, adesc)) nfp_ui_select(sel);
+    }
     // cheats.txt (Atmosphere's format, in the project folder): runtime/hle/cheatvm.c
     int nc = cheatvm_count();
     opt_section("Cheats");

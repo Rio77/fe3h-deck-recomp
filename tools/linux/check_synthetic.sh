@@ -15,6 +15,7 @@ clang -std=gnu11 -O1 -ffunction-sections -fdata-sections -Iruntime -Wl,--gc-sect
     tools/test_settings_opt5.c runtime/settings.c -o "$TEST_TMP/settings"
 "$TEST_TMP/settings"
 make test-mods
+make test-nfp
 clang -std=gnu11 -O1 -Iruntime tools/test_romfs_hashes.c runtime/romfs_build.c runtime/sha256.c -o "$TEST_TMP/romfs_hashes"
 python3 - "$TEST_TMP/hash-fixture" <<'PYTEST'
 from pathlib import Path

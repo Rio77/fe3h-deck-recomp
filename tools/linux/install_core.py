@@ -64,7 +64,7 @@ class Installation:
         if self.root == Path('/') or self.root == Path.home().resolve():
             raise InstallError('Choose a dedicated FE3H installation folder.')
         self.root.mkdir(parents=True, exist_ok=True)
-        for name in ('apps', '.installer-work', '.recovery'):
+        for name in ('apps', 'Amiibo', '.installer-work', '.recovery'):
             p = self.root / name
             if p.is_symlink():
                 raise InstallError(f'Unsafe installation folder: {name}')

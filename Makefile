@@ -307,8 +307,12 @@ smoketest:
 build/test_shaders: tools/test_shaders.m runtime/nvn/maxwell/translate.c runtime/nvn/maxwell/shader.h
 	clang -O1 -fobjc-arc -framework Metal -framework Foundation -o $@ tools/test_shaders.m runtime/nvn/maxwell/translate.c
 
-.PHONY: test-mods
+.PHONY: test-mods test-nfp
 test-mods:
 	@mkdir -p build
 	$(CC) -std=gnu11 -O1 -Wall -Wextra -Wno-format-truncation -D_FILE_OFFSET_BITS=64 -Iruntime -o build/test_mods tools/test_mods.c runtime/mods.c runtime/romfs_build.c runtime/sha256.c
 	build/test_mods
+test-nfp:
+	@mkdir -p build
+	$(CC) -std=gnu11 -O1 -Wall -Wextra -Wno-format-truncation -Iruntime -pthread -o build/test_nfp tools/test_nfp.c runtime/services/nfp.c
+	build/test_nfp
